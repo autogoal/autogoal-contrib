@@ -115,22 +115,26 @@ def find_remote_classes(
             contrib_results = []
 
             for cls in classes:
-                if not re.match(include, repr(cls)):
-                    continue
+                try:
+                    if not re.match(include, repr(cls)):
+                        continue
 
-                if exclude is not None and re.match(exclude, repr(cls)):
-                    continue
+                    if exclude is not None and re.match(exclude, repr(cls)):
+                        continue
 
-                inp = cls.input_types()
-                outp = cls.output_type()
+                    inp = cls.input_types()
+                    outp = cls.output_type()
 
-                if input and not re.match(input, str(inp)):
-                    continue
+                    if input and not re.match(input, str(inp)):
+                        continue
 
-                if output and not re.match(output, str(outp)):
-                    continue
+                    if output and not re.match(output, str(outp)):
+                        continue
 
-                contrib_results.append(cls)
+                    contrib_results.append(cls)
+                except:
+                    pass
+
             classes_by_contrib[key] = contrib_results
 
     result = [cls for _, classes in classes_by_contrib.items() for cls in classes]
