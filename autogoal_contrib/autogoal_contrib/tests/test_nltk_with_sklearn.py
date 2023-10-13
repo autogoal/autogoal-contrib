@@ -30,7 +30,10 @@ class Algorithm:
         self.stemmer = stemmer
         self.stopword = stopword
 
-@pytest.mark.skipif(not is_package_installed('autogoal_nltk'), reason="The test requires autogoal_nltk")
+
+@pytest.mark.skipif(
+    not is_package_installed("autogoal_nltk"), reason="The test requires autogoal_nltk"
+)
 def test_find_nltk_implementations():
     grammar = generate_cfg(Algorithm, find_classes(include=["*.nltk.*"]))
 
@@ -38,7 +41,12 @@ def test_find_nltk_implementations():
     assert Symbol("Algorithm[[Word],Stem]") in grammar._productions
     assert Symbol("Algorithm[[Seq[Word]],Seq[Word]]") in grammar._productions
 
-@pytest.mark.skipif(not is_package_installed('autogoal_sklearn') or not is_package_installed('autogoal_nltk'), reason="The test requires autogoal_sklearn and autogoal_nltk")
+
+@pytest.mark.skipif(
+    not is_package_installed("autogoal_sklearn")
+    or not is_package_installed("autogoal_nltk"),
+    reason="The test requires autogoal_sklearn and autogoal_nltk",
+)
 def test_crf_pipeline():
     from autogoal_nltk import FeatureSeqExtractor
     from autogoal_sklearn import CRFTagger
@@ -51,7 +59,12 @@ def test_crf_pipeline():
 
     pipeline = graph.sample()
 
-@pytest.mark.skipif(not is_package_installed('autogoal_sklearn') or not is_package_installed('autogoal_nltk'), reason="The test requires autogoal_sklearn and autogoal_nltk")
+
+@pytest.mark.skipif(
+    not is_package_installed("autogoal_sklearn")
+    or not is_package_installed("autogoal_nltk"),
+    reason="The test requires autogoal_sklearn and autogoal_nltk",
+)
 def test_count_vectorizer_sgd():
     from autogoal_sklearn import CountVectorizer
     from autogoal_sklearn._generated import SGDClassifier
@@ -86,7 +99,12 @@ def test_count_vectorizer_sgd():
     p.send("eval")
     p.run(Xtrain, None)
 
-@pytest.mark.skipif(not is_package_installed('autogoal_sklearn') or not is_package_installed('autogoal_nltk'), reason="The test requires autogoal_sklearn and autogoal_nltk")
+
+@pytest.mark.skipif(
+    not is_package_installed("autogoal_sklearn")
+    or not is_package_installed("autogoal_nltk"),
+    reason="The test requires autogoal_sklearn and autogoal_nltk",
+)
 def test_classifier_tagger():
     from autogoal_nltk._generated import ClassifierBasedPOSTagger
 
@@ -103,4 +121,3 @@ def test_classifier_tagger():
 
     result = p.run([["hello", "world"]], None)
     assert result == [["A", "B"]]
-

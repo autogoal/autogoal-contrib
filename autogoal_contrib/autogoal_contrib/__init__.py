@@ -14,7 +14,7 @@ def find_classes(include=None, exclude=None, modules=None, input=None, output=No
     import re
 
     result = []
-    
+
     if include:
         include = f".*({include}).*"
     else:
@@ -42,7 +42,7 @@ def find_classes(include=None, exclude=None, modules=None, input=None, output=No
 
             if cls.__name__.startswith("_"):
                 continue
-            
+
             if "_builder" in cls.__module__:
                 continue
 

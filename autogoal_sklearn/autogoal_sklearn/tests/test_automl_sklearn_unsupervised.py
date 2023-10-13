@@ -4,7 +4,11 @@ from autogoal.utils import is_package_installed
 import numpy as np
 import pytest
 
-@pytest.mark.skipif(not is_package_installed('autogoal_sklearn'), reason="The test requires autogoal_sklearn")
+
+@pytest.mark.skipif(
+    not is_package_installed("autogoal_sklearn"),
+    reason="The test requires autogoal_sklearn",
+)
 def test_run_unsupervised():
     X = np.array(
         [
