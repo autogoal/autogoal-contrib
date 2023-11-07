@@ -5,9 +5,9 @@ import progressbar
 import re
 
 
-def get_text_classification_models():
+def get_hf_models(target_task):
     hf_api = HfApi()
-    return hf_api.list_models(filter="text-classification")
+    return hf_api.list_models(filter=target_task)
 
 
 def get_model_config(modelId):
@@ -15,8 +15,8 @@ def get_model_config(modelId):
     return config
 
 
-def get_models_info(max_amount):
-    text_classification_models = get_text_classification_models()
+def get_models_info(target_task, max_amount):
+    text_classification_models = get_hf_models(target_task)
 
     # regex for detecting partially trained models
     pattern = r"train-\d+"
@@ -63,11 +63,11 @@ def get_models_info(max_amount):
     return model_info
 
 
-def download_text_classification_models_info(
-    output_path="text_classification_models_info.json", max_amount=1000
+def download_models_info(
+    target_task, output_path="text_classification_models_info.json", max_amount=1000
 ):
     # Get model info and dump to JSON file
-    model_info = get_models_info(max_amount)
+    model_info = get_models_info(target_task, max_amount)
     with open(output_path, "w") as f:
         json.dump(model_info, f)
 
@@ -80,3 +80,6 @@ def to_camel_case(name):
     # Remove numbers at the beginning, replace '/' with '_', and split on '-'
     words = re.sub(r"^[0-9]*", "", name.replace("/", "_").replace(".", "")).split("-")
     return "".join(re.sub(r"^[0-9]*", "", word).title() for word in words)
+
+models = get_hf_models("zero-shot-classification")
+
