@@ -1,5 +1,6 @@
 import autogoal_transformers
 from autogoal_transformers._generated import Jiva_XlmRobertaLargeItMnli
+from autogoal_transformers._tc_generated import Jiva_XlmRobertaLargeItMnli
 from autogoal.datasets import imdb_50k_movie_reviews
 from sklearn.metrics import accuracy_score
 

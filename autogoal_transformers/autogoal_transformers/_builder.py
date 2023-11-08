@@ -10,6 +10,7 @@ from autogoal.kb import (
     VectorDiscrete,
     Seq,
     Sentence,
+    Word
 )
 from autogoal_transformers._utils import (
     download_models_info,
@@ -197,9 +198,72 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
         return classification_vector
 
 
+class PretrainedTokenClassifier(TransformersWrapper):
+    def __init__(self, verbose=False) -> None:
+        super().__init__()
+        self.device = (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        )
+        self.verbose = verbose
+        self.print("Using device: %s" % self.device)
+        self.model = None
+        self.tokenizer = None
+        self.candidate_labels = None
+
+    @classmethod
+    def check_files(cls):
+        try:
+            pipeline("zero-shot-classification", model=cls.name, local_files_only=True)
+            return True
+        except:
+            return False
+
+    @classmethod
+    def download(cls):
+        pipeline("zero-shot-classification", model=cls.name)
+
+    def print(self, *args, **kwargs):
+        if not self.verbose:
+            return
+
+        print(*args, **kwargs)
+
+    def _train(self, X, y=None):
+        # Store unique classes from y as candidate labels
+        self.candidate_labels = list(set(y))
+        return y
+
+    def _eval(self, X: Seq[Sentence], *args) -> VectorDiscrete:
+        if self.model is None:
+            if not self.__class__.check_files():
+                self.__class__.download()
+
+            try:
+                self.model = pipeline(
+                    "zero-shot-classification", model=self.name, local_files_only=True, device=self.device.index
+                )
+            except OSError:
+                raise TypeError(
+                    "'Huggingface Pretrained Models' require to run `autogoal contrib download transformers`."
+                )
+
+        self.print("Tokenizing...", end="", flush=True)
+
+        classification_vector = []
+        
+        for sentence in X:
+            result = self.model(sentence, candidate_labels=self.candidate_labels)
+            best_score_index = result["scores"].index(max(result["scores"]))
+            predicted_class_id = result["labels"][best_score_index]
+            classification_vector.append(predicted_class_id)
+
+        return classification_vector
+
+
 class TASK_ALIASES(Enum):
-    ZeroShotClassification = ("zero-shot-classification",)
-    TextClassification = ("text-classification",)
+    ZeroShotClassification = "zero-shot-classification"
+    TextClassification = "text-classification"
+    TokenClassification = "token-classification"
 
 def get_task_alias(task):
     for alias in TASK_ALIASES:
@@ -209,11 +273,31 @@ def get_task_alias(task):
 
 TASK_TO_SCRIPT = {
     TASK_ALIASES.TextClassification: "_generated.py",
+    TASK_ALIASES.TokenClassification: "_tc_generated.py",
+}
+
+TASK_TO_INPUT_X = {
+    TASK_ALIASES.TextClassification: repr(Seq[Sentence]),
+    TASK_ALIASES.ZeroShotClassification: repr(Seq[Sentence]),
+    TASK_ALIASES.TokenClassification: repr(Seq[Word]),
+}
+
+TASK_TO_INPUT_Y = {
+    TASK_ALIASES.TextClassification: "Supervised[VectorCategorical]",
+    TASK_ALIASES.ZeroShotClassification: "Supervised[VectorCategorical]",
+    TASK_ALIASES.TokenClassification: "Supervised[VectorCategorical]",
+}
+
+TASK_TO_OUTPUT = {
+    TASK_ALIASES.TextClassification: "VectorCategorical",
+    TASK_ALIASES.ZeroShotClassification: "VectorCategorical",
+    TASK_ALIASES.TokenClassification: "VectorCategorical",
 }
 
 TASK_TO_WRAPPER_NAME = {
     TASK_ALIASES.ZeroShotClassification: PretrainedZeroShotClassifier.__name__,
     TASK_ALIASES.TextClassification: PetrainedTextClassifier.__name__,
+    TASK_ALIASES.TokenClassification: PretrainedTokenClassifier.__name__,
 }
 
 
@@ -278,8 +362,8 @@ def _write_class(item, fp, target_task):
     task = get_task_alias(item["metadata"]["task"])
     target_task = task if task is not None else target_task
 
-    input_str = f"X: {repr(Seq[Sentence])}, y: Supervised[VectorCategorical]"
-    output_str = "VectorCategorical"
+    input_str = f"X: {TASK_TO_INPUT_X.get(target_task)}, y: {TASK_TO_INPUT_Y.get(target_task)}"
+    output_str = TASK_TO_OUTPUT.get(target_task)
     base_class = TASK_TO_WRAPPER_NAME[target_task]
 
     fp.write(
@@ -306,7 +390,12 @@ def _write_class(item, fp, target_task):
 
 
 if __name__ == "__main__":
+    # build_transformers_wrappers(
+    #     target_task=TASK_ALIASES.TextClassification,
+    #     download_file_path="text_classification_models_info.json",
+    # )
+    
     build_transformers_wrappers(
-        target_task=TASK_ALIASES.TextClassification,
-        download_file_path="text_classification_models_info.json",
+        target_task=TASK_ALIASES.TokenClassification,
+        download_file_path="token_classification_models_info.json",
     )

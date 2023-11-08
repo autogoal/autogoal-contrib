@@ -20,8 +20,9 @@ except:
     raise
 
 
-from ._bert import BertEmbedding, BertTokenizeEmbedding
-
+from autogoal_transformers._bert import BertEmbedding, BertTokenizeEmbedding
+from autogoal_transformers._generated import *
+from autogoal_transformers._tc_generated import *
 
 def download():
     BertEmbedding.download()

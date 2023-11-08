@@ -16,7 +16,7 @@ def get_model_config(modelId):
 
 
 def get_models_info(target_task, max_amount):
-    text_classification_models = get_hf_models(target_task)
+    models = get_hf_models(target_task.value)
 
     # regex for detecting partially trained models
     pattern = r"train-\d+"
@@ -33,7 +33,7 @@ def get_models_info(target_task, max_amount):
     # Get model metadata
     model_info = []
     current = 0
-    for model in text_classification_models:
+    for model in models:
         if current >= max_amount:
             break
 
@@ -81,5 +81,8 @@ def to_camel_case(name):
     words = re.sub(r"^[0-9]*", "", name.replace("/", "_").replace(".", "")).split("-")
     return "".join(re.sub(r"^[0-9]*", "", word).title() for word in words)
 
-models = get_hf_models("zero-shot-classification")
+# models = get_hf_models("zero-shot-classification")
+
+# models = list(get_hf_models("token-classification"))
+# print(models)
 
