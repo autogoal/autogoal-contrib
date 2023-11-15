@@ -9,11 +9,32 @@ import yaml
 config_dir = dirname(abspath(getsourcefile(lambda: 0)))
 
 
-def find_classes(include=None, exclude=None, modules=None, input=None, output=None):
+def find_classes(include=None, exclude=None, modules=None, input=None, output=None, include_classes=None, exclude_classes=None):
+    """
+    This function finds and returns algorithm classes based on the provided criteria.
+
+    Parameters:
+    - include (str, optional): A regular expression pattern. Only classes whose string representation matches this pattern will be included.
+    - exclude (str, optional): A regular expression pattern. Classes whose string representation matches this pattern will be excluded.
+    - modules (list, optional): A list of modules to search for classes. If not provided, the function will search in all installed contribs excluding "remote" and "contrib".
+    - input (str, optional): A regular expression pattern. Only classes whose 'run' method's 'input' parameter annotation matches this pattern will be included.
+    - output (str, optional): A regular expression pattern. Only classes whose 'run' method's return annotation matches this pattern will be included.
+    - include_classes (list, optional): A list of specific classes to include.
+    - exclude_classes (list, optional): A list of specific classes to exclude.
+
+    Returns:
+    - list: A list of classes that match the provided criteria.
+
+    The function searches for classes in the specified modules. It includes a class if it has a 'run' method, its name does not start with '_', '_builder' is not in its module name, and it is a subclass of AlgorithmBase but not AlgorithmBase itself. The function also checks the 'include', 'exclude', 'input', and 'output' criteria if they are provided. Finally, it adds the classes in 'include_classes' and removes the classes in 'exclude_classes'.
+    """
+    
     import inspect
     import re
 
     result = []
+    
+    include_classes = set() if include_classes == None else set(include_classes)      
+    exclude_classes = set() if exclude_classes == None else set(exclude_classes)      
 
     if include:
         include = f".*({include}).*"
@@ -51,6 +72,9 @@ def find_classes(include=None, exclude=None, modules=None, input=None, output=No
 
             if exclude is not None and re.match(exclude, repr(cls)):
                 continue
+            
+            if cls in exclude_classes:
+                continue
 
             if not issubclass(cls, AlgorithmBase) or cls is AlgorithmBase:
                 continue
@@ -65,6 +89,11 @@ def find_classes(include=None, exclude=None, modules=None, input=None, output=No
 
             result.append(cls)
 
+    # add Included classes
+    for cls in include_classes:
+        if not cls in result:
+            result.append(cls)
+
     return result
 
 
@@ -76,6 +105,22 @@ def find_remote_classes(
     output=None,
     ignore_cache=False,
 ):
+    """
+    This function finds and returns remote classes based on the provided criteria.
+
+    Parameters:
+    - sources (list, optional): A list of sources to search for classes. Each source can be a string (alias), a tuple of two elements (IP and port), or a tuple of three elements (IP, port, and alias). If not provided, the function will search in all stored aliases.
+    - include (str, optional): A regular expression pattern. Only classes whose string representation matches this pattern will be included.
+    - exclude (str, optional): A regular expression pattern. Classes whose string representation matches this pattern will be excluded.
+    - input (str, optional): A regular expression pattern. Only classes whose 'input_types' method's return value matches this pattern will be included.
+    - output (str, optional): A regular expression pattern. Only classes whose 'output_type' method's return value matches this pattern will be included.
+    - ignore_cache (bool, optional): If True, the function will ignore the cache and fetch the algorithms from the remote server.
+
+    Returns:
+    - list: A list of remote classes that match the provided criteria.
+
+    The function searches for classes in the specified sources. It includes a class if its string representation matches the 'include' pattern, its 'input_types' method's return value matches the 'input' pattern, and its 'output_type' method's return value matches the 'output' pattern. The function excludes a class if its string representation matches the 'exclude' pattern.
+    """
     from autogoal_remote import get_algorithms, store_connection, get_stored_aliases
     import itertools
     import re

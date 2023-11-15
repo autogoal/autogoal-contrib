@@ -12,7 +12,7 @@ from autogoal.grammar import (
 )
 from autogoal.utils import nice_repr
 from autogoal.kb import AlgorithmBase, Supervised
-
+import numpy as np
 
 @nice_repr
 class CountVectorizerNoTokenize(_CountVectorizer, SklearnTransformer):
@@ -91,9 +91,127 @@ class CRFTagger(CRF, SklearnEstimator):
         return SklearnEstimator.run(self, X, y)
 
 
+@nice_repr
+class ClassifierTagger(SklearnEstimator):
+    """
+    A wrapper class that uses a classifier as a tagger. This class is designed to work with classifiers, 
+    possibly from sklearn, and use them as taggers. It handles the necessary transformations to fit and predict on sequence data.
+
+    Attributes:
+        classifier (algorithm): The classifier algorithm to use. 
+        This should be a function that takes a MatrixContinuous and a Supervised[VectorCategorical] as input and returns a VectorCategorical.
+    """
+    def __init__(
+        self, 
+        classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)
+    ) -> None:
+        SklearnEstimator.__init__(self)
+        self.classifier = classifier
+        
+    def fit(self, X, y):
+        # Save the starting index of each sublist in X
+        self.concat_positions = [0] + [len(sublist) for sublist in X]
+        self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
+
+        # Concatenate X and y into single lists
+        X_concat = [embedding for sublist in X for embedding in sublist]
+        y_concat = [label for sublist in y for label in sublist]
+        
+        assert len(X_concat) == sum([len(ix) for ix in X])
+        assert len(y_concat) == sum([len(iy) for iy in y])
+        
+        # Fit the classifier
+        self.classifier.fit(X_concat, y_concat)
+
+    def predict(self, X):
+        # Concatenate X into a single list of embeddings
+        X_concat = [embedding for sublist in X for embedding in sublist]
+        
+        # Check we hold the same amount of x's in X than originally
+        assert len(X_concat) == sum([len(ix) for ix in X])
+
+        # Predict using the classifier
+        y_pred_concat = self.classifier.predict(X_concat)
+        
+        # Check we hold the same amount of predictions as there elements in X
+        assert len(y_pred_concat) == sum([len(ix) for ix in X])
+
+        # Deconcatenate y_pred to match the original shape of X
+        y_pred = [np.array([y_pred_concat[y_pos + i] for i in range(len(sub_X))]) for y_pos, sub_X in enumerate(X)]
+            
+        # Check the shapes of the predictions agains the original elements
+        for i in range(len(X)):
+            sy = np.shape(y_pred[i])
+            sx = np.shape(X[i])
+            assert sy[0] == sx[0]
+
+        return y_pred
+
+    def run(
+        self, X: Seq[MatrixContinuous], y: Supervised[Seq[Seq[Label]]]
+    ) -> Seq[Seq[Label]]:
+        return SklearnEstimator.run(self, X, y)
+
+@nice_repr
+class ClassifierTransformerTagger(SklearnEstimator):
+    """
+    A wrapper class that uses a classifier as a tagger. This class is designed to work with classifiers, 
+    possibly from sklearn, and use them as taggers. It handles the necessary transformations to fit and predict on sequence data.
+
+    Attributes:
+        classifier (algorithm): The classifier algorithm to use. 
+        This should be a function that takes a MatrixContinuous and a Supervised[VectorCategorical] as input and returns a VectorCategorical.
+    """
+    def __init__(
+        self, 
+        transformer: algorithm(MatrixContinuous, MatrixContinuous),
+        classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)
+    ) -> None:
+        SklearnEstimator.__init__(self)
+        self.classifier = classifier
+        self.transformer = transformer
+        
+    def fit(self, X, y):
+        # Save the starting index of each sublist in X
+        self.concat_positions = [0] + [len(sublist) for sublist in X]
+        self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
+
+        # Concatenate X and y into single lists
+        X_concat = [embedding for sublist in X for embedding in sublist]
+        y_concat = [label for sublist in y for label in sublist]
+        
+        if (self.transformer):
+            X_concat = self.transformer.fit_transform(X_concat)
+            
+        # Fit the classifier
+        self.classifier.fit(X_concat, y_concat)
+
+    def predict(self, X):
+        # Concatenate X into a single list of embeddings
+        X_concat = [embedding for sublist in X for embedding in sublist]
+
+        if (self.transformer):
+            X_concat = self.transformer.fit_transform(X_concat)
+
+        # Predict using the classifier
+        y_pred_concat = self.classifier.predict(X_concat)
+
+        # Deconcatenate y_pred to match the original shape of X
+        y_pred = [np.array([y_pred_concat[y_pos + i] for i in range(len(sub_X))]) for y_pos, sub_X in enumerate(X)]
+
+        return y_pred
+
+    def run(
+        self, X: Seq[MatrixContinuous], y: Supervised[Seq[Seq[Label]]]
+    ) -> Seq[Seq[Label]]:
+        return SklearnEstimator.run(self, X, y)
+
+
 __all__ = [
     "CountVectorizerNoTokenize",
     "FeatureSparseVectorizer",
     "FeatureDenseVectorizer",
     "CRFTagger",
+    "ClassifierTagger",
+    "ClassifierTransformerTagger"
 ]
