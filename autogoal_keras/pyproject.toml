@@ -14,6 +14,7 @@ packages = [{include = "autogoal_keras"}]
 python = "3.9.16"
 tensorflow = "^2.12.0"
 keras = "^2.12.0"
+tensorflow_addons = "^0.22.0"
 
 [build-system]
 requires = ["poetry-core"]

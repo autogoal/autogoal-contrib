@@ -45,7 +45,10 @@ class BertEmbedding(AlgorithmBase):
     use_cache = False
 
     def __init__(
-        self, merge_mode: CategoricalValue("avg", "first") = "avg", *, verbose=False
+        self, 
+        merge_mode: CategoricalValue("avg", "first") = "avg", 
+        *, 
+        verbose=False
     ):  # , length: Discrete(16, 512)):
         self.device = (
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -83,30 +86,39 @@ class BertEmbedding(AlgorithmBase):
                 self.tokenizer = BertTokenizer.from_pretrained(
                     "bert-base-multilingual-cased", local_files_only=True
                 )
-            except OSError:
+            except OSError as e:
                 raise TypeError(
                     "BERT requires to run `autogoal contrib download transformers`."
                 )
+            except Exception as e:
+                raise e
 
         bert_tokens = [self.tokenizer.tokenize(x) for x in input]
         bert_sequence = self.tokenizer.encode_plus(
-            [t for tokens in bert_tokens for t in tokens], return_tensors="pt"
-        )
+            [t for tokens in bert_tokens for t in tokens], return_tensors="pt", padding=True, truncation=True,
+        ).to(self.device)
 
         with torch.no_grad():
             output = self.model(**bert_sequence).last_hidden_state
             output = output.squeeze(0)
 
+        # delete the reference so we can clean the GRAM
+        del bert_sequence
+        
         count = 0
         matrix = []
         for i, token in enumerate(input):
             contiguous = len(bert_tokens[i])
             vectors = output[count : count + contiguous, :]
-            vector = self._merge(vectors)
+            vector = self._merge(vectors.to('cpu'))
             matrix.append(vector)
             count += contiguous
+            
+            # delete the reference so we can clean the GRAM
+            del vectors
 
         matrix = np.vstack(matrix)
+        torch.cuda.empty_cache()
 
         return matrix
 
