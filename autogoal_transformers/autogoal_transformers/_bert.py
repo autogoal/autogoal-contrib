@@ -79,6 +79,8 @@ class BertEmbedding(AlgorithmBase):
 
     def run(self, input: Seq[Word]) -> MatrixContinuousDense:
         if self.model is None:
+            if not self.__class__.check_files():
+                self.__class__.download()
             try:
                 self.model = BertModel.from_pretrained(
                     "bert-base-multilingual-cased", local_files_only=True

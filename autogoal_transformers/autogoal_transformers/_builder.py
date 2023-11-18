@@ -8,9 +8,11 @@ from autogoal.kb import (
     AlgorithmBase,
     Supervised,
     VectorDiscrete,
+    VectorCategorical,
     Seq,
     Sentence,
-    Word
+    Word,
+    Label
 )
 from autogoal_transformers._utils import (
     download_models_info,
@@ -19,11 +21,14 @@ from autogoal_transformers._utils import (
 import black
 import enlighten
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoModel, pipeline, AutoModelForTokenClassification
 from enum import Enum
 
 
 class TransformersWrapper(AlgorithmBase):
+    """
+    Base wrapper for transformers algorithms from huggingface
+    """
     def __init__(self):
         self._mode = "train"
 
@@ -51,6 +56,22 @@ class TransformersWrapper(AlgorithmBase):
 
 
 class PetrainedTextClassifier(TransformersWrapper):
+    """
+    A class used to represent a Pretrained Text Classifier which is a wrapper around the Transformers library.
+
+    ...
+
+    Attributes
+    ----------
+    device : torch.device
+        a device instance where the model will be run.
+    verbose : bool
+        a boolean indicating whether to print verbose messages.
+    model : transformers.PreTrainedModel
+        the pretrained model.
+    tokenizer : transformers.PreTrainedTokenizer
+        the tokenizer corresponding to the pretrained model."""
+        
     def __init__(self, verbose=False) -> None:
         super().__init__()
         self.device = (
@@ -63,6 +84,15 @@ class PetrainedTextClassifier(TransformersWrapper):
 
     @classmethod
     def check_files(cls):
+        """
+        Checks if the pretrained model and tokenizer files are available locally.
+
+        Returns
+        -------
+        bool
+            True if the files are available locally, False otherwise.
+        """
+
         try:
             AutoModelForSequenceClassification.from_pretrained(
                 cls.name, local_files_only=True
@@ -74,6 +104,9 @@ class PetrainedTextClassifier(TransformersWrapper):
 
     @classmethod
     def download(cls):
+        """
+        Downloads the pretrained model and tokenizer.
+        """
         AutoModelForSequenceClassification.from_pretrained(cls.name)
         AutoTokenizer.from_pretrained(cls.name)
 
@@ -84,7 +117,30 @@ class PetrainedTextClassifier(TransformersWrapper):
         print(*args, **kwargs)
 
     def _check_input_compatibility(self, X, y):
-        return len(set(y)) <= self.num_classes
+        """
+        Checks if the input labels are compatible with the pretrained model labels.
+
+        Parameters
+        ----------
+        X : 
+            The input data.
+        y : 
+            The input labels.
+
+        Raises
+        ------
+        AssertionError
+            If the number of unique labels in y is not equal to the number of classes in the pretrained model.
+        KeyError
+            If a label in y is not present in the pretrained model labels.
+        """
+        labels = set(y)
+        
+        assert len(labels) != self.num_classes, f"Input is not compatible. Expected labels are different from petrained labels for model '{self.name}'."
+        
+        for l in labels:
+            if l not in self.id2label.values():
+                raise KeyError(f"Input is not compatible, label '{l}' is not present in pretrained data for model '{self.name}'")
 
     def _train(self, X, y=None):
         if not self._check_input_compatibility(X, y):
@@ -93,7 +149,7 @@ class PetrainedTextClassifier(TransformersWrapper):
             )
         return y
 
-    def _eval(self, X: Seq[Sentence], *args) -> VectorDiscrete:
+    def _eval(self, X: Seq[Sentence],  y: Supervised[VectorCategorical]) -> VectorCategorical:
         if self.model is None:
             if not self.__class__.check_files():
                 self.__class__.download()
@@ -133,8 +189,11 @@ class PetrainedTextClassifier(TransformersWrapper):
             predicted_class_id = logits_for_sequence_i.argmax().item()
             classification_vector.append(predicted_class_id)
 
+        torch.cuda.empty_cache()
         return classification_vector
-
+    
+    def run(self, X: Seq[Sentence],  y: Supervised[VectorCategorical]) -> VectorCategorical:
+        return TransformersWrapper.run(self, X, y)
 
 class PretrainedZeroShotClassifier(TransformersWrapper):
     def __init__(self, verbose=False) -> None:
@@ -169,9 +228,9 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
     def _train(self, X, y=None):
         # Store unique classes from y as candidate labels
         self.candidate_labels = list(set(y))
-        return y
+        return self._eval(X)
 
-    def _eval(self, X: Seq[Sentence], *args) -> VectorDiscrete:
+    def _eval(self, X: Seq[Sentence], *args) -> VectorCategorical:
         if self.model is None:
             if not self.__class__.check_files():
                 self.__class__.download()
@@ -185,8 +244,6 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
                     "'Huggingface Pretrained Models' require to run `autogoal contrib download transformers`."
                 )
 
-        self.print("Tokenizing...", end="", flush=True)
-
         classification_vector = []
         
         for sentence in X:
@@ -195,8 +252,13 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
             predicted_class_id = result["labels"][best_score_index]
             classification_vector.append(predicted_class_id)
 
+        torch.cuda.empty_cache()
         return classification_vector
-
+    
+    def run(
+        self, X: Seq[Sentence], y: Supervised[VectorCategorical]
+    ) -> VectorCategorical:
+        return TransformersWrapper.run(self, X, y)
 
 class PretrainedTokenClassifier(TransformersWrapper):
     def __init__(self, verbose=False) -> None:
@@ -208,19 +270,20 @@ class PretrainedTokenClassifier(TransformersWrapper):
         self.print("Using device: %s" % self.device)
         self.model = None
         self.tokenizer = None
-        self.candidate_labels = None
 
     @classmethod
     def check_files(cls):
         try:
-            pipeline("zero-shot-classification", model=cls.name, local_files_only=True)
+            AutoModel.from_pretrained(cls.name, local_files_only=True)
+            AutoTokenizer.from_pretrained(cls.name, local_files_only=True)
             return True
         except:
             return False
 
     @classmethod
     def download(cls):
-        pipeline("zero-shot-classification", model=cls.name)
+        AutoModel.from_pretrained(cls.name)
+        AutoTokenizer.from_pretrained(cls.name)
 
     def print(self, *args, **kwargs):
         if not self.verbose:
@@ -228,20 +291,46 @@ class PretrainedTokenClassifier(TransformersWrapper):
 
         print(*args, **kwargs)
 
+    def _check_input_compatibility(self, X, y):
+        """
+        Checks if the input labels are compatible with the pretrained model labels.
+
+        Parameters
+        ----------
+        X : 
+            The input data.
+        y : 
+            The input labels.
+
+        Raises
+        ------
+        AssertionError
+            If the number of unique labels in y is not equal to the number of classes in the pretrained model.
+        KeyError
+            If a label in y is not present in the pretrained model labels.
+        """
+        labels = set(y)
+        
+        assert len(labels) != self.num_classes, f"Input is not compatible. Expected labels are different from petrained labels for model '{self.name}'."
+        
+        for l in labels:
+            if l not in self.id2label.values():
+                raise KeyError(f"Input is not compatible, label '{l}' is not present in pretrained data for model '{self.name}'")
+
     def _train(self, X, y=None):
-        # Store unique classes from y as candidate labels
-        self.candidate_labels = list(set(y))
+        self._check_input_compatibility(X, y)
         return y
 
-    def _eval(self, X: Seq[Sentence], *args) -> VectorDiscrete:
+    def _eval(self, X: Seq[Word], *args) -> Seq[Label]:
         if self.model is None:
             if not self.__class__.check_files():
                 self.__class__.download()
 
             try:
-                self.model = pipeline(
-                    "zero-shot-classification", model=self.name, local_files_only=True, device=self.device.index
-                )
+                self.model = AutoModelForTokenClassification.from_pretrained(self.name, local_files_only=True).to(self.device)
+                self.tokenizer = AutoTokenizer.from_pretrained(self.name, local_files_only=True)
+                self.classifier = torch.nn.Linear(self.model.config.hidden_size, self.num_classes).to(self.device)
+
             except OSError:
                 raise TypeError(
                     "'Huggingface Pretrained Models' require to run `autogoal contrib download transformers`."
@@ -249,15 +338,38 @@ class PretrainedTokenClassifier(TransformersWrapper):
 
         self.print("Tokenizing...", end="", flush=True)
 
-        classification_vector = []
-        
-        for sentence in X:
-            result = self.model(sentence, candidate_labels=self.candidate_labels)
-            best_score_index = result["scores"].index(max(result["scores"]))
-            predicted_class_id = result["labels"][best_score_index]
-            classification_vector.append(predicted_class_id)
+        # Tokenize and encode the sentences
+        encoded_inputs = self.tokenizer(X, is_split_into_words=True, return_tensors="pt", padding=True, truncation=True)
+    
+        # Move the encoded inputs to the device
+        sequence = encoded_inputs.to(self.device)
+        word_ids = encoded_inputs.word_ids()
 
-        return classification_vector
+        # Get the model's predictions
+        with torch.no_grad():
+            outputs = self.model(**sequence)
+
+        predictions = torch.argmax(outputs.logits, dim=2)
+        token_predictions = [self.model.config.id2label[t.item()] for t in predictions[0]]
+        
+        word_labels = [0]*len(X)
+        
+        for i in range(len(token_predictions)):
+            word_index = word_ids[i]
+            if word_index == None:
+                continue
+            
+            word_labels[word_index] = token_predictions[i]
+        
+
+        assert len(X) == len(word_labels), "Output does not match input sequence shape"
+        
+        del sequence
+        torch.cuda.empty_cache()
+        return word_labels
+
+    def run(self, X: Seq[Word], y: Supervised[Seq[Label]]) -> Seq[Label]:
+        return TransformersWrapper.run(self, X, y)
 
 
 class TASK_ALIASES(Enum):
@@ -274,24 +386,6 @@ def get_task_alias(task):
 TASK_TO_SCRIPT = {
     TASK_ALIASES.TextClassification: "_generated.py",
     TASK_ALIASES.TokenClassification: "_tc_generated.py",
-}
-
-TASK_TO_INPUT_X = {
-    TASK_ALIASES.TextClassification: repr(Seq[Sentence]),
-    TASK_ALIASES.ZeroShotClassification: repr(Seq[Sentence]),
-    TASK_ALIASES.TokenClassification: repr(Seq[Word]),
-}
-
-TASK_TO_INPUT_Y = {
-    TASK_ALIASES.TextClassification: "Supervised[VectorCategorical]",
-    TASK_ALIASES.ZeroShotClassification: "Supervised[VectorCategorical]",
-    TASK_ALIASES.TokenClassification: "Supervised[VectorCategorical]",
-}
-
-TASK_TO_OUTPUT = {
-    TASK_ALIASES.TextClassification: "VectorCategorical",
-    TASK_ALIASES.ZeroShotClassification: "VectorCategorical",
-    TASK_ALIASES.TokenClassification: "VectorCategorical",
 }
 
 TASK_TO_WRAPPER_NAME = {
@@ -362,8 +456,6 @@ def _write_class(item, fp, target_task):
     task = get_task_alias(item["metadata"]["task"])
     target_task = task if task is not None else target_task
 
-    input_str = f"X: {TASK_TO_INPUT_X.get(target_task)}, y: {TASK_TO_INPUT_Y.get(target_task)}"
-    output_str = TASK_TO_OUTPUT.get(target_task)
     base_class = TASK_TO_WRAPPER_NAME[target_task]
 
     fp.write(
@@ -378,9 +470,6 @@ def _write_class(item, fp, target_task):
                 self
             ):
                 {base_class}.__init__(self)
-
-            def run(self, {input_str}) -> {output_str}:
-               return {base_class}.run(self, X, y)
         """
         )
     )
@@ -390,10 +479,10 @@ def _write_class(item, fp, target_task):
 
 
 if __name__ == "__main__":
-    # build_transformers_wrappers(
-    #     target_task=TASK_ALIASES.TextClassification,
-    #     download_file_path="text_classification_models_info.json",
-    # )
+    build_transformers_wrappers(
+        target_task=TASK_ALIASES.TextClassification,
+        download_file_path="text_classification_models_info.json",
+    )
     
     build_transformers_wrappers(
         target_task=TASK_ALIASES.TokenClassification,
