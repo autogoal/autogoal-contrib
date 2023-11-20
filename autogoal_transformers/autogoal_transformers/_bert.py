@@ -1,13 +1,12 @@
-from autogoal.kb import AlgorithmBase
-from transformers import BertModel, BertTokenizer
-from pathlib import Path
-import torch
-import numpy as np
 
-from autogoal.kb import Sentence, MatrixContinuousDense, Tensor3, Seq, Word
-from autogoal.kb import Supervised
-from autogoal.grammar import DiscreteValue, CategoricalValue
-from autogoal.utils import CacheManager, nice_repr
+import numpy as np
+import torch
+from transformers import BertModel, BertTokenizer
+
+from autogoal.grammar import CategoricalValue
+from autogoal.kb import (AlgorithmBase, MatrixContinuousDense, Sentence, Seq,
+                         Tensor3, Word)
+from autogoal.utils import is_cuda_multiprocessing_enabled, nice_repr
 
 
 @nice_repr
@@ -51,7 +50,7 @@ class BertEmbedding(AlgorithmBase):
         verbose=False
     ):  # , length: Discrete(16, 512)):
         self.device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
         )
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
@@ -151,7 +150,7 @@ class BertTokenizeEmbedding(AlgorithmBase):
 
     def __init__(self, verbose=False):  # , length: Discrete(16, 512)):
         self.device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
         )
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
@@ -179,9 +178,7 @@ class BertTokenizeEmbedding(AlgorithmBase):
                 )
 
         self.print("Tokenizing...", end="", flush=True)
-        tokens = [
-            self.tokenizer(x, max_length=32, pad_to_max_length=True) for x in input
-        ]
+        tokens = [self.tokenizer(x, max_length=32, pad_to_max_length=True)['input_ids'] for x in input]
         self.print("done")
 
         ids = torch.tensor(tokens).to(self.device)

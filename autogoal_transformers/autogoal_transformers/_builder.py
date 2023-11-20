@@ -1,28 +1,22 @@
 import abc
-import json
 import datetime
-import textwrap
+import json
 import os
+import textwrap
+from enum import Enum
 from pathlib import Path
-from autogoal.kb import (
-    AlgorithmBase,
-    Supervised,
-    VectorDiscrete,
-    VectorCategorical,
-    Seq,
-    Sentence,
-    Word,
-    Label
-)
-from autogoal_transformers._utils import (
-    download_models_info,
-    to_camel_case,
-)
+
 import black
 import enlighten
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, AutoModel, pipeline, AutoModelForTokenClassification
-from enum import Enum
+from autogoal_transformers._utils import download_models_info, to_camel_case
+from transformers import (AutoModel, AutoModelForSequenceClassification,
+                          AutoModelForTokenClassification, AutoTokenizer,
+                          pipeline)
+
+from autogoal.kb import (AlgorithmBase, Label, Sentence, Seq, Supervised,
+                         VectorCategorical, Word)
+from autogoal.utils import is_cuda_multiprocessing_enabled
 
 
 class TransformersWrapper(AlgorithmBase):
@@ -31,6 +25,9 @@ class TransformersWrapper(AlgorithmBase):
     """
     def __init__(self):
         self._mode = "train"
+        self.device = (
+            torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
+        )
 
     def train(self):
         self._mode = "train"
@@ -74,9 +71,6 @@ class PetrainedTextClassifier(TransformersWrapper):
         
     def __init__(self, verbose=False) -> None:
         super().__init__()
-        self.device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
         self.model = None
@@ -198,9 +192,6 @@ class PetrainedTextClassifier(TransformersWrapper):
 class PretrainedZeroShotClassifier(TransformersWrapper):
     def __init__(self, verbose=False) -> None:
         super().__init__()
-        self.device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
         self.model = None
@@ -263,9 +254,6 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
 class PretrainedTokenClassifier(TransformersWrapper):
     def __init__(self, verbose=False) -> None:
         super().__init__()
-        self.device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
         self.model = None
