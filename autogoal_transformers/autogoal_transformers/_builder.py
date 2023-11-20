@@ -9,7 +9,7 @@ from pathlib import Path
 import black
 import enlighten
 import torch
-from autogoal_transformers._utils import download_models_info, to_camel_case
+from autogoal_transformers._utils import download_models_info, to_camel_case, DOWNLOAD_MODE
 from transformers import (AutoModel, AutoModelForSequenceClassification,
                           AutoModelForTokenClassification, AutoTokenizer,
                           pipeline)
@@ -50,7 +50,6 @@ class TransformersWrapper(AlgorithmBase):
     @abc.abstractmethod
     def _eval(self, *args):
         pass
-
 
 class PetrainedTextClassifier(TransformersWrapper):
     """
@@ -373,7 +372,14 @@ def get_task_alias(task):
 
 TASK_TO_SCRIPT = {
     TASK_ALIASES.TextClassification: "_generated.py",
+    TASK_ALIASES.ZeroShotClassification: "_generated.py",
     TASK_ALIASES.TokenClassification: "_tc_generated.py",
+}
+
+TASK_TO_ALGORITHM_MARK = {
+    TASK_ALIASES.TextClassification: "TEC_",
+    TASK_ALIASES.ZeroShotClassification: "TEC_",
+    TASK_ALIASES.TokenClassification: "TOC_",
 }
 
 TASK_TO_WRAPPER_NAME = {
@@ -384,9 +390,21 @@ TASK_TO_WRAPPER_NAME = {
 
 
 def build_transformers_wrappers(
-    target_task=TASK_ALIASES.TextClassification, download_file_path=None
+    target_task=TASK_ALIASES.TextClassification, 
+    download_file_path=None, 
+    max_amount=1000, 
+    min_likes=100, 
+    min_downloads=1000,
+    download_mode=DOWNLOAD_MODE.HUB
 ):
-    imports = _load_models_info(target_task, download_file_path)
+    imports = _load_models_info(
+        target_task, 
+        download_file_path,
+        max_amount=max_amount, 
+        min_likes=min_likes, 
+        min_downloads=min_downloads,
+        download_mode=download_mode
+    )
 
     manager = enlighten.get_manager()
     counter = manager.counter(total=len(imports), unit="classes")
@@ -422,14 +440,19 @@ def build_transformers_wrappers(
 
 
 def _load_models_info(
-    target_task=TASK_ALIASES.TextClassification, file_path=None, max_amount=1000
+    target_task=TASK_ALIASES.TextClassification, 
+    file_path=None, 
+    max_amount=1000, 
+    min_likes=100, 
+    min_downloads=1000,
+    download_mode=DOWNLOAD_MODE.HUB
 ):
     if file_path is None:
         file_path = "text_classification_models_info.json"
 
     # Check if the file exists
     if not os.path.exists(file_path):
-        download_models_info(target_task, file_path, max_amount)
+        download_models_info(target_task, file_path, max_amount, min_likes, min_downloads, download_mode=download_mode)
 
     # Load the JSON data
     with open(file_path, "r") as f:
@@ -438,7 +461,7 @@ def _load_models_info(
 
 
 def _write_class(item, fp, target_task):
-    class_name = to_camel_case(item["name"])
+    class_name = TASK_TO_ALGORITHM_MARK[target_task] + to_camel_case(item["name"])
     print("Generating class: %r" % class_name)
     
     task = get_task_alias(item["metadata"]["task"])
@@ -451,8 +474,11 @@ def _write_class(item, fp, target_task):
             f"""
         class {class_name}({base_class}):
             name = "{item["name"]}"
+            likes = {item["metadata"]["likes"]}
+            downloads = {item["metadata"]["downloads"]}
             id2label = {item["metadata"]["id2label"]}
             num_classes = {len(item["metadata"]["id2label"])}
+            tags = {len(item["metadata"]["id2label"])}
             
             def __init__(
                 self
@@ -468,11 +494,17 @@ def _write_class(item, fp, target_task):
 
 if __name__ == "__main__":
     build_transformers_wrappers(
-        target_task=TASK_ALIASES.TextClassification,
+        target_task=TASK_ALIASES.ZeroShotClassification,
         download_file_path="text_classification_models_info.json",
+        max_amount=10,
+        download_mode=DOWNLOAD_MODE.SCRAP,
+        min_likes=30
     )
     
     build_transformers_wrappers(
         target_task=TASK_ALIASES.TokenClassification,
         download_file_path="token_classification_models_info.json",
+        max_amount=20,
+        download_mode=DOWNLOAD_MODE.SCRAP,
+        min_likes=50
     )
