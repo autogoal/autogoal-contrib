@@ -2,8 +2,8 @@ import time
 import textwrap
 
 from autogoal.search import Logger
-from telegram.ext import Updater, Dispatcher, CommandHandler
-from telegram import ParseMode
+from telegram.ext import Updater, CommandHandler
+# from telegram import ParseMode
 
 
 class TelegramLogger(Logger):
@@ -20,7 +20,7 @@ class TelegramLogger(Logger):
         self.message = self.message = self.dispatcher.bot.send_message(
             chat_id=self.channel,
             text=f"**{self.name}**\nStarting...",
-            parse_mode=ParseMode.MARKDOWN,
+            # parse_mode=ParseMode.MARKDOWN,
         )
 
     def begin(self, generations, pop_size):
