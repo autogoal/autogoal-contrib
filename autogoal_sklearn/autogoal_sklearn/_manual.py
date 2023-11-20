@@ -164,7 +164,7 @@ class ClassifierTransformerTagger(SklearnEstimator):
     """
     def __init__(
         self, 
-        transformer: algorithm(MatrixContinuous, MatrixContinuous),
+        transformer: algorithm(MatrixContinuousDense, MatrixContinuousDense),
         classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)
     ) -> None:
         SklearnEstimator.__init__(self)
