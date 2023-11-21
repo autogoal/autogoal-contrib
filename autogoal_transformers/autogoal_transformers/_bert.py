@@ -163,8 +163,22 @@ class BertTokenizeEmbedding(AlgorithmBase):
 
         print(*args, **kwargs)
 
+    @classmethod
+    def check_files(cls):
+        BertModel.from_pretrained("bert-base-multilingual-cased", local_files_only=True)
+        BertTokenizer.from_pretrained(
+            "bert-base-multilingual-cased", local_files_only=True
+        )
+
+    @classmethod
+    def download(cls):
+        BertModel.from_pretrained("bert-base-multilingual-cased")
+        BertTokenizer.from_pretrained("bert-base-multilingual-cased")
+
     def run(self, input: Seq[Sentence]) -> Tensor3:
         if self.model is None:
+            if not self.__class__.check_files():
+                self.__class__.download()
             try:
                 self.model = BertModel.from_pretrained(
                     "bert-base-multilingual-cased", local_files_only=True

@@ -79,15 +79,13 @@ class TEC_Sileod_DebertaV3BaseTasksourceNli(PretrainedZeroShotClassifier):
         PretrainedZeroShotClassifier.__init__(self)
 
 
-class TEC_Moritzlaurer_DebertaV3LargeMnliFeverAnliLingWanli(
-    PretrainedZeroShotClassifier
-):
-    name = "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
-    likes = 62
-    downloads = 24700.0
-    id2label = {"0": "entailment", "1": "neutral", "2": "contradiction"}
-    num_classes = 3
-    tags = 3
+class TEC_Moritzlaurer_DebertaV3BaseZeroshotV1(PretrainedZeroShotClassifier):
+    name = "MoritzLaurer/deberta-v3-base-zeroshot-v1"
+    likes = 34
+    downloads = 7210.0
+    id2label = {"0": "entailment", "1": "not_entailment"}
+    num_classes = 2
+    tags = 2
 
     def __init__(self):
         PretrainedZeroShotClassifier.__init__(self)
