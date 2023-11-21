@@ -6,7 +6,7 @@ import re
 from enum import Enum
 
 import requests
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup
 
 class DOWNLOAD_MODE(Enum):
     HUB = "hub"

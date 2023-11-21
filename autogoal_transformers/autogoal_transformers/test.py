@@ -93,7 +93,7 @@ def test_semeval_sentence_classification():
     X_test = X[amount:2*amount]
     y_test = y[amount:2*amount]
     
-    loggers = [RichLogger(), TelegramLogger(token="6425450979:AAF4Mic12nAWYlfiMNkCTRB0ZzcgaIegd7M", channel="-2088376569", name="test")]
+    loggers = [RichLogger(), TelegramLogger(token="6425450979:AAF4Mic12nAWYlfiMNkCTRB0ZzcgaIegd7M", channel="570734906", name="test")]
     a.fit(X_train, y_train, logger=loggers)
     
     results = a.score(X_test, y_test)
