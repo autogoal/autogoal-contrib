@@ -77,7 +77,7 @@ class TelegramLogger(Logger):
             return
         
         if time.time() - self.last_time_other < 5:
-            return
+            time.sleep(5)
 
         self.last_time_other = time.time()
         
@@ -94,7 +94,7 @@ class TelegramLogger(Logger):
             return
 
         if time.time() - self.last_time < 5:
-            return
+            time.sleep(5)
 
         self.last_time = time.time()
         pareto_front = "["
