@@ -137,7 +137,10 @@ class NltkClusterer(SklearnLikeWrapper):
 class NltkTagger(SklearnLikeWrapper):
     def _train(self, X, y):
         tagged_sentences = [list(zip(words, tags)) for words, tags in zip(X, y)]
-        self._instance = self.tagger(train=tagged_sentences)
+        try:
+            self._instance = self.tagger(train=tagged_sentences)
+        except:
+            self._instance = self.__inner_type.train(self, tagged_sentences)
         return X, y
 
     def _eval(self, X, y=None):

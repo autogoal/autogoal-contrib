@@ -17,6 +17,7 @@ class TelegramLogger(Logger):
         self.progress = 0
         self.generations = 1
         self.bests = []
+        self.bests_pipelines = []
         self.current = ""
         self.message = self.message = self.dispatcher.bot.send_message(
             chat_id=self.channel,
@@ -39,6 +40,7 @@ class TelegramLogger(Logger):
         new_dominated_solutions,
     ):
         self.bests = new_best_fns
+        self.bests_pipelines = new_best_solutions
         self._send()
 
     def end(self, best_solutions, best_fns):
@@ -58,12 +60,23 @@ class TelegramLogger(Logger):
             return
 
         self.last_time = time.time()
-
+        
+        [repr(self.bests_pipelines[i]) + '\n' + 'macro F1=' + str(self.bests[i][0]) + ' RAM usage=' for i in range(len(self.bests_pipelines))]
+        pareto_front = "["
+        for i in range(len(self.bests_pipelines)):
+            pareto_front += "\n---------------\n"
+            pareto_front += repr(self.bests_pipelines[i])
+            pareto_front += "\n"
+            pareto_front += f"macro F1={self.bests[i][0]}, RAM usage={self.bests[i][1]}"
+            pareto_front += "\n---------------\n"
+        pareto_front += "]"
+        
         text = textwrap.dedent(
             f"""
             **{self.name}**
-            Pareto Front: `{self.bests}`
             Iterations: `{self.progress}/{self.generations}`
+            Best fitness: `{self.bests}`
+            Pareto Front: `{pareto_front}`
             """
         )
         try:

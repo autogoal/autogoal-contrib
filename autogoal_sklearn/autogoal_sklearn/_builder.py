@@ -53,6 +53,11 @@ from autogoal.utils import nice_repr
 class SklearnWrapper(AlgorithmBase):
     def __init__(self):
         self._mode = "train"
+        
+    @classmethod
+    def is_upscalable(cls) -> bool:
+        a = hasattr(cls, "partial_fit")
+        return a
 
     def train(self):
         self._mode = "train"
@@ -79,8 +84,10 @@ class SklearnWrapper(AlgorithmBase):
 
 class SklearnEstimator(SklearnWrapper):
     def _train(self, X, y=None):
-        self.fit(X, y)
-
+        if hasattr(self, "partial_fit"):
+            self.partial_fit(X, y, np.unique(y))
+        else:
+            self.fit(X, y)
         return y
 
     def _eval(self, X, y=None):
@@ -97,7 +104,11 @@ class SklearnEstimator(SklearnWrapper):
 
 class SklearnTransformer(SklearnWrapper):
     def _train(self, X, y=None):
-        return self.fit_transform(X)
+        if hasattr(self, "partial_fit"):
+            self.partial_fit(X)
+            return self.transform(X)
+        else:
+            return self.fit_transform(X)
 
     def _eval(self, X, y=None):
         return self.transform(X)

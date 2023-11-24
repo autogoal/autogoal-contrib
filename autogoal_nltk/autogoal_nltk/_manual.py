@@ -20,63 +20,63 @@ from autogoal.utils import nice_repr
 from autogoal.kb import AlgorithmBase
 
 
-@nice_repr
-class Doc2Vec(SklearnLikeTransformer):
-    def __init__(
-        self,
-        dm: DiscreteValue(min=0, max=2),
-        dbow_words: DiscreteValue(min=-100, max=100),
-        dm_concat: DiscreteValue(min=-100, max=100),
-        dm_tag_count: DiscreteValue(min=0, max=2),
-        alpha: ContinuousValue(min=0.001, max=0.075),
-        epochs: DiscreteValue(min=2, max=10),
-        window: DiscreteValue(min=2, max=10),
-    ):
-        self.dm = int(dm)
-        self.dbow_words = int(dbow_words)
-        self.dm_concat = int(dm_concat)
-        self.dm_tag_count = int(dm_tag_count)
-        self.alpha = alpha
-        self.epochs = int(epochs)
-        self.window = int(window)
+# @nice_repr
+# class Doc2Vec(SklearnLikeTransformer):
+#     def __init__(
+#         self,
+#         dm: DiscreteValue(min=0, max=2),
+#         dbow_words: DiscreteValue(min=-100, max=100),
+#         dm_concat: DiscreteValue(min=-100, max=100),
+#         dm_tag_count: DiscreteValue(min=0, max=2),
+#         alpha: ContinuousValue(min=0.001, max=0.075),
+#         epochs: DiscreteValue(min=2, max=10),
+#         window: DiscreteValue(min=2, max=10),
+#     ):
+#         self.dm = int(dm)
+#         self.dbow_words = int(dbow_words)
+#         self.dm_concat = int(dm_concat)
+#         self.dm_tag_count = int(dm_tag_count)
+#         self.alpha = alpha
+#         self.epochs = int(epochs)
+#         self.window = int(window)
 
-    def fit_transform(self, X, y=None):
-        self.fit(X, y)
-        return self.transform(X)
+#     def fit_transform(self, X, y=None):
+#         self.fit(X, y)
+#         return self.transform(X)
 
-    def train(self):
-        SklearnLikeTransformer.train(self)
+#     def train(self):
+#         SklearnLikeTransformer.train(self)
 
-    def fit(self, X, y):
-        # Doc2Vec cannot be "refitted" so it must be initalized every time
-        self.doc2vec = _Doc2Vec(
-            dm=self.dm,
-            dbow_words=self.dbow_words,
-            dm_concat=self.dm_concat,
-            dm_tag_count=self.dm_tag_count,
-            alpha=self.alpha,
-            epochs=self.epochs,
-            window=self.window,
-        )
+#     def fit(self, X, y):
+#         # Doc2Vec cannot be "refitted" so it must be initalized every time
+#         self.doc2vec = _Doc2Vec(
+#             dm=self.dm,
+#             dbow_words=self.dbow_words,
+#             dm_concat=self.dm_concat,
+#             dm_tag_count=self.dm_tag_count,
+#             alpha=self.alpha,
+#             epochs=self.epochs,
+#             window=self.window,
+#         )
 
-        # Data must be turned to tagged data as TaggedDocument(Seq[Token), Tag)
-        # Tag use to be an unique integer
+#         # Data must be turned to tagged data as TaggedDocument(Seq[Token), Tag)
+#         # Tag use to be an unique integer
 
-        from gensim.models.doc2vec import TaggedDocument as _TaggedDocument
+#         from gensim.models.doc2vec import TaggedDocument as _TaggedDocument
 
-        tagged_data = [_TaggedDocument(X[i], str(i)) for i in range(len(X))]
+#         tagged_data = [_TaggedDocument(X[i], str(i)) for i in range(len(X))]
 
-        self.doc2vec.build_vocab(tagged_data)
-        return self.doc2vec.train(
-            tagged_data, total_examples=self.doc2vec.corpus_count, epochs=self.epochs
-        )
+#         self.doc2vec.build_vocab(tagged_data)
+#         return self.doc2vec.train(
+#             tagged_data, total_examples=self.doc2vec.corpus_count, epochs=self.epochs
+#         )
 
-    def transform(self, X, y=None):
-        return [self.doc2vec.infer_vector(x) for x in X]
+#     def transform(self, X, y=None):
+#         return [self.doc2vec.infer_vector(x) for x in X]
 
-    def run(self, input: Seq[Seq[Word]]) -> MatrixContinuousDense:
-        """This methods receive a document list and transform this into a dense continuous matrix."""
-        return SklearnLikeTransformer.run(self, input)
+#     def run(self, input: Seq[Seq[Word]]) -> MatrixContinuousDense:
+#         """This methods receive a document list and transform this into a dense continuous matrix."""
+#         return SklearnLikeTransformer.run(self, input)
 
 
 @nice_repr
@@ -336,7 +336,6 @@ class FeatureSeqExtractor(AlgorithmBase):
 
 
 __all__ = [
-    "Doc2Vec",
     "StopwordRemover",
     "TextLowerer",
     "WordnetConcept",
