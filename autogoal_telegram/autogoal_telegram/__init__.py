@@ -12,6 +12,7 @@ class TelegramLogger(Logger):
         self.name = name
         self.channel = int(channel) if channel and channel.isdigit() else channel
         self.last_time = time.time()
+        self.last_time_other = time.time()
         self.updater = Updater(token)
         self.dispatcher = self.updater.dispatcher
         self.progress = 0
@@ -75,10 +76,10 @@ class TelegramLogger(Logger):
         if not self.channel:
             return
         
-        if time.time() - self.last_time < 5:
+        if time.time() - self.last_time_other < 5:
             return
 
-        self.last_time = time.time()
+        self.last_time_other = time.time()
         
         try:
             self.last_message.edit_text(
