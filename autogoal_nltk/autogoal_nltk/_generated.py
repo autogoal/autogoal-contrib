@@ -291,23 +291,23 @@ class UnigramTagger(NltkTagger):
 from nltk.tag.tnt import TnT as _TnT
 
 
-# @nice_repr
-# class TnT(_TnT, NltkTagger):
-#     def __init__(
-#         self,
-#         Trained: BooleanValue(),
-#         N: DiscreteValue(min=500, max=2000),
-#         C: BooleanValue(),
-#     ):
-#         self.Trained = Trained
-#         self.N = N
-#         self.C = C
-#         NltkTagger.__init__(self)
-#         _TnT.__init__(self, Trained=Trained, N=N, C=C)
+@nice_repr
+class TnT(_TnT, NltkTagger):
+    def __init__(
+        self,
+        Trained: BooleanValue(),
+        N: DiscreteValue(min=500, max=2000),
+        C: BooleanValue(),
+    ):
+        self.Trained = Trained
+        self.N = N
+        self.C = C
+        NltkTagger.__init__(self)
+        _TnT.__init__(self, Trained=Trained, N=N, C=C)
 
-#     def run(self,  input: Seq[Seq[Word]], y: Supervised[Seq[Seq[Postag]]]
-#         ) -> Seq[Seq[Postag]]:
-#         return NltkTagger.run(self, input)
+    def run(self,  input: Seq[Seq[Word]], y: Supervised[Seq[Seq[Postag]]]
+        ) -> Seq[Seq[Postag]]:
+        return NltkTagger.run(self, input)
 
 
 from nltk.tokenize.casual import TweetTokenizer as _TweetTokenizer
@@ -636,22 +636,22 @@ class UnigramTagger(NltkTagger):
 from nltk.tag.tnt import TnT as _TnT
 
 
-@nice_repr
-class TnT(_TnT, NltkTrainedTagger):
-    def __init__(
-        self,
-        Trained: BooleanValue(),
-        N: DiscreteValue(min=500, max=2000),
-        C: BooleanValue(),
-    ):
-        self.Trained = Trained
-        self.N = N
-        self.C = C
-        NltkTrainedTagger.__init__(self)
-        _TnT.__init__(self, Trained=Trained, N=N, C=C)
+# @nice_repr
+# class TnT(_TnT, NltkTrainedTagger):
+#     def __init__(
+#         self,
+#         Trained: BooleanValue(),
+#         N: DiscreteValue(min=500, max=2000),
+#         C: BooleanValue(),
+#     ):
+#         self.Trained = Trained
+#         self.N = N
+#         self.C = C
+#         NltkTrainedTagger.__init__(self)
+#         _TnT.__init__(self, Trained=Trained, N=N, C=C)
 
-    def run(self, input: Seq[Word]) -> Seq[Postag]:
-        return NltkTrainedTagger.run(self, input)
+#     def run(self, input: Seq[Word]) -> Seq[Postag]:
+#         return NltkTrainedTagger.run(self, input)
 
 
 __all__ = [
