@@ -85,7 +85,7 @@ class PetrainedTextClassifier(TransformersWrapper):
         bool
             True if the files are available locally, False otherwise.
         """
-
+        return False
         try:
             AutoModelForSequenceClassification.from_pretrained(
                 cls.name, local_files_only=True
@@ -100,6 +100,9 @@ class PetrainedTextClassifier(TransformersWrapper):
         """
         Downloads the pretrained model and tokenizer.
         """
+        if not cls.check_files():
+            raise  Exception("Model not available locally. Please download it first.")
+        
         AutoModelForSequenceClassification.from_pretrained(cls.name)
         AutoTokenizer.from_pretrained(cls.name)
 
@@ -199,6 +202,7 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
 
     @classmethod
     def check_files(cls):
+        return False
         try:
             pipeline("zero-shot-classification", model=cls.name, local_files_only=True)
             return True
@@ -207,6 +211,8 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
 
     @classmethod
     def download(cls):
+        if not cls.check_files():
+            raise  Exception("Model not available locally. Please download it first.")
         pipeline("zero-shot-classification", model=cls.name)
 
     def print(self, *args, **kwargs):
@@ -260,6 +266,7 @@ class PretrainedTokenClassifier(TransformersWrapper):
 
     @classmethod
     def check_files(cls):
+        return False
         try:
             AutoModel.from_pretrained(cls.name, local_files_only=True)
             AutoTokenizer.from_pretrained(cls.name, local_files_only=True)
@@ -269,6 +276,8 @@ class PretrainedTokenClassifier(TransformersWrapper):
 
     @classmethod
     def download(cls):
+        if not cls.check_files():
+            raise  Exception("Model not available locally. Please download it first.")
         AutoModel.from_pretrained(cls.name)
         AutoTokenizer.from_pretrained(cls.name)
 
