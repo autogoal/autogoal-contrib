@@ -496,15 +496,15 @@ if __name__ == "__main__":
     build_transformers_wrappers(
         target_task=TASK_ALIASES.ZeroShotClassification,
         download_file_path="text_classification_models_info.json",
-        max_amount=10,
+        max_amount=15,
         download_mode=DOWNLOAD_MODE.SCRAP,
-        min_likes=30
+        min_likes=20,
     )
     
-    build_transformers_wrappers(
-        target_task=TASK_ALIASES.TokenClassification,
-        download_file_path="token_classification_models_info.json",
-        max_amount=20,
-        download_mode=DOWNLOAD_MODE.SCRAP,
-        min_likes=50
-    )
+    # build_transformers_wrappers(
+    #     target_task=TASK_ALIASES.TokenClassification,
+    #     download_file_path="token_classification_models_info.json",
+    #     max_amount=20,
+    #     download_mode=DOWNLOAD_MODE.SCRAP,
+    #     min_likes=50
+    # )
