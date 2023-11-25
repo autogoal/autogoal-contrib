@@ -199,6 +199,47 @@ class ClassifierTransformerTagger(SklearnEstimator):
     ) -> Seq[Seq[Label]]:
         return SklearnEstimator.run(self, X, y)
 
+@nice_repr
+class AggregatedTransformer(SklearnTransformer):
+    def __init__(
+        self, 
+        transformer: algorithm(MatrixContinuousDense, MatrixContinuousDense)
+    ) -> None:
+        SklearnTransformer.__init__(self)
+        self.transformer = transformer
+    
+    def fit_transform(self, X, y=None):
+        # Save the starting index of each sublist in X
+        self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
+        self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
+        
+        # Concatenate X and y into single lists
+        X_concat = [embedding for sublist in X for embedding in sublist]
+        
+        if hasattr(self, "partial_fit"):
+            self.partial_fit(X_concat)
+            result = self.transformer.transform(X_concat)
+        else:
+            result = self.transformer.fit_transform(X_concat)
+            
+        # Deconcatenate y_pred to match the original shape of X
+        return [np.array([result[y_pos + i] for i in range(len(sub_X) if isinstance(sub_X, list) else sub_X.shape[0])]) for y_pos, sub_X in enumerate(X)]
+
+    def transform(self, X, y=None):
+        # Save the starting index of each sublist in X
+        self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
+        self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
+        
+        # Concatenate X and y into single lists
+        X_concat = [embedding for sublist in X for embedding in sublist]
+        
+        result = self.transformer.transform(X_concat)
+            
+        # Deconcatenate y_pred to match the original shape of X
+        return [np.array([result[y_pos + i] for i in range(len(sub_X) if isinstance(sub_X, list) else sub_X.shape[0])]) for y_pos, sub_X in enumerate(X)]
+        
+    def run(self, X: Seq[MatrixContinuous]) -> Seq[MatrixContinuous]:
+        return SklearnTransformer.run(self, X)
 
 __all__ = [
     "CountVectorizerNoTokenize",

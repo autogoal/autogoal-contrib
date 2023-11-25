@@ -1,10 +1,11 @@
 from autogoal.datasets import semeval_2023_task_8_1 as semeval
 from autogoal.datasets.semeval_2023_task_8_1 import F1_beta_plain, precision_plain, recall_plain, macro_f1_plain, macro_f1
-from autogoal_sklearn._generated import MultinomialNB, MinMaxScaler, Perceptron
-from autogoal_sklearn._manual import ClassifierTransformerTagger, ClassifierTagger
+from autogoal_sklearn._generated import MultinomialNB, MinMaxScaler, Perceptron, CountVectorizer, TfidfTransformer, KNNImputer
+from autogoal_sklearn._manual import ClassifierTransformerTagger, ClassifierTagger, AggregatedTransformer
 from autogoal_transformers._bert import BertEmbedding, BertTokenizeEmbedding
 from autogoal_transformers._generated import TEC_Moritzlaurer_DebertaV3BaseMnliFeverAnli
 from autogoal_transformers._tc_generated import TOC_Dslim_BertBaseNer
+from autogoal_transformers._manual import SeqPretrainedTokenClassifier
 from autogoal_keras import KerasSequenceClassifier
 from autogoal.kb import Seq, Word, VectorCategorical, MatrixCategorical, Supervised, Tensor, Categorical, Dense, Label, Pipeline, Sentence
 from autogoal.datasets.meddocan import F1_beta, precision, recall
@@ -55,7 +56,7 @@ def test_semeval_token_classification():
         input=(Seq[Seq[Word]], Supervised[Seq[Seq[Label]]]),
         output=Seq[Seq[Label]],
         search_algorithm=NSPESearch,
-        registry=find_classes(exclude="TEX"),#[BertEmbedding, ClassifierTagger, ClassifierTransformerTagger, Perceptron, MultinomialNB, MinMaxScaler, TOC_Dslim_BertBaseNer],#,#[BertEmbedding, ClassifierTagger, ClassifierTransformerTagger, Perceptron, MultinomialNB, MinMaxScaler, Arbert_RobertaBaseFinetunedNerKmeansTwitter],
+        registry=[AggregatedTransformer, KNNImputer, Perceptron, ClassifierTagger, BertEmbedding],#find_classes(include="TOC") + [SeqPretrainedTokenClassifier],#[BertEmbedding, ClassifierTagger, ClassifierTransformerTagger, Perceptron, MultinomialNB, MinMaxScaler, TOC_Dslim_BertBaseNer],#,#[BertEmbedding, ClassifierTagger, ClassifierTransformerTagger, Perceptron, MultinomialNB, MinMaxScaler, Arbert_RobertaBaseFinetunedNerKmeansTwitter],
         objectives=(macro_f1, peak_ram_usage),
         maximize=(True, False),
         evaluation_timeout=2*Min,
@@ -64,7 +65,7 @@ def test_semeval_token_classification():
         search_timeout=5*Min
     )
     
-    amount = 10
+    amount = 20
 
     X_train = X[:amount]
     y_train = y[:amount]
@@ -84,7 +85,7 @@ def test_semeval_sentence_classification():
     a = AutoML(
         input=(Seq[Sentence], Supervised[VectorCategorical]),
         output=VectorCategorical,
-        registry=find_classes(include="TEC"),
+        registry=[AggregatedTransformer, CountVectorizer, TfidfTransformer, Perceptron],#find_classes(include="TEC"),
         objectives=(macro_f1_plain, peak_ram_usage),
         maximize=(True, False),
         evaluation_timeout=5*Min,
