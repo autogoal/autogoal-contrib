@@ -292,7 +292,7 @@ from nltk.tag.tnt import TnT as _TnT
 
 
 @nice_repr
-class TnT(_TnT, NltkTrainedTagger):
+class TnT(_TnT, NltkTagger):
     def __init__(
         self,
         Trained: BooleanValue(),
@@ -302,11 +302,12 @@ class TnT(_TnT, NltkTrainedTagger):
         self.Trained = Trained
         self.N = N
         self.C = C
-        NltkTrainedTagger.__init__(self)
+        NltkTagger.__init__(self)
         _TnT.__init__(self, Trained=Trained, N=N, C=C)
 
-    def run(self, input: Seq[Word]) -> Seq[Postag]:
-        return NltkTrainedTagger.run(self, input)
+    def run(self,  input: Seq[Seq[Word]], y: Supervised[Seq[Seq[Postag]]]
+        ) -> Seq[Seq[Postag]]:
+        return NltkTagger.run(self, input)
 
 
 from nltk.tokenize.casual import TweetTokenizer as _TweetTokenizer
@@ -323,6 +324,7 @@ class TweetTokenizer(_TweetTokenizer, NltkTokenizer):
         self.preserve_case = preserve_case
         self.reduce_len = reduce_len
         self.strip_handles = strip_handles
+        self._inner_type = _TweetTokenizer
         NltkTokenizer.__init__(self)
         _TweetTokenizer.__init__(
             self,
@@ -533,18 +535,19 @@ from nltk.tag.perceptron import PerceptronTagger as _PerceptronTagger
 
 
 @nice_repr
-class PerceptronTagger(_PerceptronTagger, NltkTrainedTagger):
+class PerceptronTagger(_PerceptronTagger, NltkTagger):
     def __init__(
         self,
     ):
 
-        NltkTrainedTagger.__init__(self)
+        NltkTagger.__init__(self)
         _PerceptronTagger.__init__(
             self,
         )
 
-    def run(self, input: Seq[Word]) -> Seq[Postag]:
-        return NltkTrainedTagger.run(self, input)
+    def run(self, input: Seq[Seq[Word]], y: Supervised[Seq[Seq[Postag]]]
+    ) -> Seq[Seq[Postag]]:
+        return NltkTagger.run(self, input)
 
 
 from nltk.tag.sequential import BigramTagger as _BigramTagger
@@ -633,22 +636,22 @@ class UnigramTagger(NltkTagger):
 from nltk.tag.tnt import TnT as _TnT
 
 
-@nice_repr
-class TnT(_TnT, NltkTrainedTagger):
-    def __init__(
-        self,
-        Trained: BooleanValue(),
-        N: DiscreteValue(min=500, max=2000),
-        C: BooleanValue(),
-    ):
-        self.Trained = Trained
-        self.N = N
-        self.C = C
-        NltkTrainedTagger.__init__(self)
-        _TnT.__init__(self, Trained=Trained, N=N, C=C)
+# @nice_repr
+# class TnT(_TnT, NltkTrainedTagger):
+#     def __init__(
+#         self,
+#         Trained: BooleanValue(),
+#         N: DiscreteValue(min=500, max=2000),
+#         C: BooleanValue(),
+#     ):
+#         self.Trained = Trained
+#         self.N = N
+#         self.C = C
+#         NltkTrainedTagger.__init__(self)
+#         _TnT.__init__(self, Trained=Trained, N=N, C=C)
 
-    def run(self, input: Seq[Word]) -> Seq[Postag]:
-        return NltkTrainedTagger.run(self, input)
+#     def run(self, input: Seq[Word]) -> Seq[Postag]:
+#         return NltkTrainedTagger.run(self, input)
 
 
 __all__ = [

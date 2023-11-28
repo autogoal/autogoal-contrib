@@ -110,34 +110,26 @@ class ClassifierTagger(SklearnEstimator):
         
     def fit(self, X, y):
         # Save the starting index of each sublist in X
-        self.concat_positions = [0] + [len(sublist) for sublist in X]
+        self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
         self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
 
         # Concatenate X and y into single lists
         X_concat = [embedding for sublist in X for embedding in sublist]
         y_concat = [label for sublist in y for label in sublist]
         
-        assert len(X_concat) == sum([len(ix) for ix in X])
-        assert len(y_concat) == sum([len(iy) for iy in y])
-        
         # Fit the classifier
         self.classifier.fit(X_concat, y_concat)
+        return y
 
     def predict(self, X):
         # Concatenate X into a single list of embeddings
         X_concat = [embedding for sublist in X for embedding in sublist]
         
-        # Check we hold the same amount of x's in X than originally
-        assert len(X_concat) == sum([len(ix) for ix in X])
-
         # Predict using the classifier
         y_pred_concat = self.classifier.predict(X_concat)
         
-        # Check we hold the same amount of predictions as there elements in X
-        assert len(y_pred_concat) == sum([len(ix) for ix in X])
-
         # Deconcatenate y_pred to match the original shape of X
-        y_pred = [np.array([y_pred_concat[y_pos + i] for i in range(len(sub_X))]) for y_pos, sub_X in enumerate(X)]
+        y_pred = [np.array([y_pred_concat[y_pos + i] for i in range(len(sub_X) if isinstance(sub_X, list) else sub_X.shape[0])]) for y_pos, sub_X in enumerate(X)]
             
         # Check the shapes of the predictions agains the original elements
         for i in range(len(X)):
@@ -173,7 +165,7 @@ class ClassifierTransformerTagger(SklearnEstimator):
         
     def fit(self, X, y):
         # Save the starting index of each sublist in X
-        self.concat_positions = [0] + [len(sublist) for sublist in X]
+        self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
         self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
 
         # Concatenate X and y into single lists
@@ -185,6 +177,7 @@ class ClassifierTransformerTagger(SklearnEstimator):
             
         # Fit the classifier
         self.classifier.fit(X_concat, y_concat)
+        return y
 
     def predict(self, X):
         # Concatenate X into a single list of embeddings
@@ -197,7 +190,7 @@ class ClassifierTransformerTagger(SklearnEstimator):
         y_pred_concat = self.classifier.predict(X_concat)
 
         # Deconcatenate y_pred to match the original shape of X
-        y_pred = [np.array([y_pred_concat[y_pos + i] for i in range(len(sub_X))]) for y_pos, sub_X in enumerate(X)]
+        y_pred = [np.array([y_pred_concat[y_pos + i] for i in range(len(sub_X) if isinstance(sub_X, list) else sub_X.shape[0])]) for y_pos, sub_X in enumerate(X)]
 
         return y_pred
 
@@ -206,6 +199,47 @@ class ClassifierTransformerTagger(SklearnEstimator):
     ) -> Seq[Seq[Label]]:
         return SklearnEstimator.run(self, X, y)
 
+@nice_repr
+class AggregatedTransformer(SklearnTransformer):
+    def __init__(
+        self, 
+        transformer: algorithm(MatrixContinuousDense, MatrixContinuousDense)
+    ) -> None:
+        SklearnTransformer.__init__(self)
+        self.transformer = transformer
+    
+    def fit_transform(self, X, y=None):
+        # Save the starting index of each sublist in X
+        self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
+        self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
+        
+        # Concatenate X and y into single lists
+        X_concat = [embedding for sublist in X for embedding in sublist]
+        
+        if hasattr(self, "partial_fit"):
+            self.partial_fit(X_concat)
+            result = self.transformer.transform(X_concat)
+        else:
+            result = self.transformer.fit_transform(X_concat)
+            
+        # Deconcatenate y_pred to match the original shape of X
+        return [np.array([result[y_pos + i] for i in range(len(sub_X) if isinstance(sub_X, list) else sub_X.shape[0])]) for y_pos, sub_X in enumerate(X)]
+
+    def transform(self, X, y=None):
+        # Save the starting index of each sublist in X
+        self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
+        self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
+        
+        # Concatenate X and y into single lists
+        X_concat = [embedding for sublist in X for embedding in sublist]
+        
+        result = self.transformer.transform(X_concat)
+            
+        # Deconcatenate y_pred to match the original shape of X
+        return [np.array([result[y_pos + i] for i in range(len(sub_X) if isinstance(sub_X, list) else sub_X.shape[0])]) for y_pos, sub_X in enumerate(X)]
+        
+    def run(self, X: Seq[MatrixContinuous]) -> Seq[MatrixContinuous]:
+        return SklearnTransformer.run(self, X)
 
 __all__ = [
     "CountVectorizerNoTokenize",
