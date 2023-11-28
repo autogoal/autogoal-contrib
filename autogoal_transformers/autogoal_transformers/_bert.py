@@ -47,7 +47,7 @@ class BertEmbedding(AlgorithmBase):
         self, 
         merge_mode: CategoricalValue("avg", "first") = "avg", 
         *, 
-        verbose=False
+        verbose=True
     ):  # , length: Discrete(16, 512)):
         self.device = (
             torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
@@ -94,15 +94,19 @@ class BertEmbedding(AlgorithmBase):
             except Exception as e:
                 raise e
 
+        self.print("Tokenizing...", end="", flush=True)
         bert_tokens = [self.tokenizer.tokenize(x) for x in input]
         bert_sequence = self.tokenizer.encode_plus(
             [t for tokens in bert_tokens for t in tokens], return_tensors="pt", padding=True, truncation=True,
         ).to(self.device)
+        self.print("done")
 
         with torch.no_grad():
+            self.print("Embedding...", end="", flush=True)
             output = self.model(**bert_sequence).last_hidden_state
             output = output.squeeze(0)
-
+            self.print("done")
+            
         # delete the reference so we can clean the GRAM
         del bert_sequence
         
@@ -148,7 +152,7 @@ class BertTokenizeEmbedding(AlgorithmBase):
     If you are using the development container the model should be already downloaded for you.
     """
 
-    def __init__(self, verbose=False):  # , length: Discrete(16, 512)):
+    def __init__(self, verbose=True):  # , length: Discrete(16, 512)):
         self.device = (
             torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
         )
@@ -163,8 +167,22 @@ class BertTokenizeEmbedding(AlgorithmBase):
 
         print(*args, **kwargs)
 
+    @classmethod
+    def check_files(cls):
+        BertModel.from_pretrained("bert-base-multilingual-cased", local_files_only=True)
+        BertTokenizer.from_pretrained(
+            "bert-base-multilingual-cased", local_files_only=True
+        )
+
+    @classmethod
+    def download(cls):
+        BertModel.from_pretrained("bert-base-multilingual-cased")
+        BertTokenizer.from_pretrained("bert-base-multilingual-cased")
+
     def run(self, input: Seq[Sentence]) -> Tensor3:
         if self.model is None:
+            if not self.__class__.check_files():
+                self.__class__.download()
             try:
                 self.model = BertModel.from_pretrained(
                     "bert-base-multilingual-cased", local_files_only=True
@@ -187,5 +205,8 @@ class BertTokenizeEmbedding(AlgorithmBase):
             self.print("Embedding...", end="", flush=True)
             output = self.model(ids)[0].numpy()
             self.print("done")
-
+            
+        del ids
+        torch.cuda.empty_cache()
+        
         return output

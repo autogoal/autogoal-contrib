@@ -16,7 +16,11 @@ from transformers import (AutoModel, AutoModelForSequenceClassification,
 
 from autogoal.kb import (AlgorithmBase, Label, Sentence, Seq, Supervised,
                          VectorCategorical, Word)
+
+from autogoal.grammar import DiscreteValue
 from autogoal.utils import is_cuda_multiprocessing_enabled
+import time
+import warnings
 
 
 class TransformersWrapper(AlgorithmBase):
@@ -68,7 +72,7 @@ class PetrainedTextClassifier(TransformersWrapper):
     tokenizer : transformers.PreTrainedTokenizer
         the tokenizer corresponding to the pretrained model."""
         
-    def __init__(self, verbose=False) -> None:
+    def __init__(self, verbose=True) -> None:
         super().__init__()
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
@@ -85,7 +89,6 @@ class PetrainedTextClassifier(TransformersWrapper):
         bool
             True if the files are available locally, False otherwise.
         """
-
         try:
             AutoModelForSequenceClassification.from_pretrained(
                 cls.name, local_files_only=True
@@ -189,8 +192,9 @@ class PetrainedTextClassifier(TransformersWrapper):
         return TransformersWrapper.run(self, X, y)
 
 class PretrainedZeroShotClassifier(TransformersWrapper):
-    def __init__(self, verbose=False) -> None:
+    def __init__(self, batch_size, verbose=True) -> None:
         super().__init__()
+        self.batch_size = batch_size
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
         self.model = None
@@ -227,7 +231,7 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
 
             try:
                 self.model = pipeline(
-                    "zero-shot-classification", model=self.name, local_files_only=True, device=self.device.index
+                    "zero-shot-classification", model=self.name, local_files_only=True, device=self.device
                 )
             except OSError:
                 raise TypeError(
@@ -235,12 +239,27 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
                 )
 
         classification_vector = []
+        self.print(f"Running Inference with batch size {self.batch_size}...", end="", flush=True)
+        start = time.time()
         
-        for sentence in X:
-            result = self.model(sentence, candidate_labels=self.candidate_labels)
-            best_score_index = result["scores"].index(max(result["scores"]))
-            predicted_class_id = result["labels"][best_score_index]
-            classification_vector.append(predicted_class_id)
+        count = 0
+        for i in range(0, len(X), self.batch_size):
+            batch = X[i:i+self.batch_size]
+            self.print(f"Batch {count} with {len(batch)} items", end="", flush=True)
+            count+=1
+            
+            warnings.filterwarnings("ignore", category=UserWarning)
+            results = self.model(batch, candidate_labels=self.candidate_labels)
+            warnings.filterwarnings("default", category=UserWarning)
+            
+            for result in results:
+                best_score_index = result["scores"].index(max(result["scores"]))
+                predicted_class_id = result["labels"][best_score_index]
+                classification_vector.append(predicted_class_id)
+            self.print(f"done batch", end="", flush=True)
+                
+        end = time.time()
+        self.print(f"done inference in {end - start} seconds", end="", flush=True)
 
         torch.cuda.empty_cache()
         return classification_vector
@@ -251,7 +270,7 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
         return TransformersWrapper.run(self, X, y)
 
 class PretrainedTokenClassifier(TransformersWrapper):
-    def __init__(self, verbose=False) -> None:
+    def __init__(self, verbose=True) -> None:
         super().__init__()
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
@@ -481,9 +500,9 @@ def _write_class(item, fp, target_task):
             tags = {len(item["metadata"]["id2label"])}
             
             def __init__(
-                self
+                self{', batch_size:DiscreteValue(4, 128)' if target_task == TASK_ALIASES.ZeroShotClassification else ''}
             ):
-                {base_class}.__init__(self)
+                {base_class}.__init__(self{', batch_size' if target_task == TASK_ALIASES.ZeroShotClassification else ''})
         """
         )
     )
@@ -496,15 +515,15 @@ if __name__ == "__main__":
     build_transformers_wrappers(
         target_task=TASK_ALIASES.ZeroShotClassification,
         download_file_path="text_classification_models_info.json",
-        max_amount=10,
+        max_amount=15,
         download_mode=DOWNLOAD_MODE.SCRAP,
-        min_likes=30
+        min_likes=20,
     )
     
-    build_transformers_wrappers(
-        target_task=TASK_ALIASES.TokenClassification,
-        download_file_path="token_classification_models_info.json",
-        max_amount=20,
-        download_mode=DOWNLOAD_MODE.SCRAP,
-        min_likes=50
-    )
+    # build_transformers_wrappers(
+    #     target_task=TASK_ALIASES.TokenClassification,
+    #     download_file_path="token_classification_models_info.json",
+    #     max_amount=20,
+    #     download_mode=DOWNLOAD_MODE.SCRAP,
+    #     min_likes=50
+    # )
