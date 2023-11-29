@@ -12,7 +12,7 @@ from autogoal.datasets.meddocan import F1_beta, precision, recall
 from autogoal.ml import AutoML, peak_ram_usage, evaluation_time
 from autogoal.search import RichLogger, NSPESearch
 from autogoal_telegram import TelegramLogger
-from autogoal.utils import Gb, Min
+from autogoal.utils import Gb, Min, initialize_cuda_multiprocessing
 
 from autogoal_contrib import find_classes
 
@@ -88,7 +88,7 @@ def test_semeval_sentence_classification():
         registry=find_classes(exclude="TEC|Bert|Keras"),
         objectives=(macro_f1_plain, evaluation_time),
         maximize=(True, False),
-        evaluation_timeout=5*Min,
+        evaluation_timeout=3*Min,
         search_timeout=10*Min,
         memory_limit=20*Gb
     )
@@ -101,7 +101,7 @@ def test_semeval_sentence_classification():
     X_test = X[amount:2*amount]
     y_test = y[amount:2*amount]
     
-    loggers = [RichLogger(), TelegramLogger(token="6425450979:AAF4Mic12nAWYlfiMNkCTRB0ZzcgaIegd7M", channel="570734906", name="test")]
+    loggers = [RichLogger()]#, TelegramLogger(token="6425450979:AAF4Mic12nAWYlfiMNkCTRB0ZzcgaIegd7M", channel="570734906", name="test")]
     a.fit(X_train, y_train, logger=loggers)
     
     results = a.score(X_test, y_test)
