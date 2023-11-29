@@ -13,7 +13,7 @@ packages = [{include = "autogoal_telegram"}]
 [tool.poetry.dependencies]
 python = "3.9.16"
 telegram = "^0.0.1"
-python-telegram-bot = "^20.2"
+python-telegram-bot = "13"
 
 [build-system]
 requires = ["poetry-core"]

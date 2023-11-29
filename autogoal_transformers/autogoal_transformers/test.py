@@ -9,7 +9,7 @@ from autogoal_transformers._manual import SeqPretrainedTokenClassifier
 from autogoal_keras import KerasSequenceClassifier
 from autogoal.kb import Seq, Word, VectorCategorical, MatrixCategorical, Supervised, Tensor, Categorical, Dense, Label, Pipeline, Sentence
 from autogoal.datasets.meddocan import F1_beta, precision, recall
-from autogoal.ml import AutoML, peak_ram_usage
+from autogoal.ml import AutoML, peak_ram_usage, evaluation_time
 from autogoal.search import RichLogger, NSPESearch
 from autogoal_telegram import TelegramLogger
 from autogoal.utils import Gb, Min
@@ -85,15 +85,15 @@ def test_semeval_sentence_classification():
     a = AutoML(
         input=(Seq[Sentence], Supervised[VectorCategorical]),
         output=VectorCategorical,
-        registry=[AggregatedTransformer, CountVectorizer, TfidfTransformer, Perceptron],#find_classes(include="TEC"),
-        objectives=(macro_f1_plain, peak_ram_usage),
+        registry=find_classes(exclude="TEC|Bert|Keras"),
+        objectives=(macro_f1_plain, evaluation_time),
         maximize=(True, False),
         evaluation_timeout=5*Min,
         search_timeout=10*Min,
         memory_limit=20*Gb
     )
     
-    amount = 20
+    amount = 100
     
     X_train = X[:amount]
     y_train = y[:amount]
@@ -116,22 +116,29 @@ if __name__ == '__main__':
     # test_pipeline(3000)
     # from autogoal.utils._process import initialize_cuda_multiprocessing
     
+    # test_semeval_token_classification()
     # initialize_cuda_multiprocessing()
-    test_semeval_token_classification()
     # test_semeval_sentence_classification()
     
-    # X, y, _, _ = semeval.load(mode=semeval.TaskTypeSemeval.TokenClassification, data_option=semeval.SemevalDatasetSelection.Original)
-    # import numpy as np
-    # from deap import base, creator, tools, algorithms
-    # import random
-    # import sys
+    # X, y, X_test, y_test = semeval.load(mode=semeval.TaskTypeSemeval.TokenClassification, data_option=semeval.SemevalDatasetSelection.Original, verbose=True)
+    # print(f"token-classification dataset size: {len(X) + len(X_test)}")
+    
+    # X, y, _, _ = semeval.load(mode=semeval.TaskTypeSemeval.SentenceClassification, data_option=semeval.SemevalDatasetSelection.Original, verbose=True)
+    # print(f"sentence-classification dataset size: {len(X)}")
+    
+    import numpy as np
+    from deap import base, creator, tools, algorithms
+    import random
+    import sys
     
     # # print(len(y))
     # # print(len(selected_y))
     
-    # # X_train, y_train, X_test, y_test = semeval.load(mode=semeval.TaskTypeSemeval.TokenClassification, data_option=semeval.SemevalDatasetSelection.Original)
-    # # print(len(X_train)/len(X_test))
+    # X, y, X_test, y_test = semeval.load(mode=semeval.TaskTypeSemeval.TokenClassification, data_option=semeval.SemevalDatasetSelection.Original)
+    # # # print(len(X_train)/len(X_test))
     
+    # X = X + X_test
+    # y = y + y_test
     
     # classes = ['O', 'claim', 'per_exp', 'claim_per_exp', 'question']
     
@@ -159,6 +166,8 @@ if __name__ == '__main__':
     # def func(original_list, selected_indexes):
     #     if len(selected_indexes) == 0:
     #         return sys.float_info.max
+        
+    #     current_selection_distance = abs(len(list(set(selected_indexes))) - len(y)*0.2) 
     
     #     notselected = [original_list[i] for i in range(len(original_list)) if i not in selected_indexes]
     #     selected = [original_list[i] for i in selected_indexes]
@@ -166,7 +175,7 @@ if __name__ == '__main__':
     #     notselected_proportions = get_proportions(notselected)
     #     selected_proportions = get_proportions(selected)
         
-    #     return euclidean_distance(notselected_proportions, selected_proportions)
+    #     return euclidean_distance(notselected_proportions, selected_proportions) * 10 + current_selection_distance
         
         
     # # Define the fitness function
@@ -199,7 +208,7 @@ if __name__ == '__main__':
     #     stats.register("min", np.min)
     #     stats.register("max", np.max)
         
-    #     pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=10, stats=stats, halloffame=hof, verbose=True)\
+    #     pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=200, stats=stats, halloffame=hof, verbose=True)\
         
     #     best_indexes = hof[0]
     #     best_list = [original_list[i] for i in best_indexes]

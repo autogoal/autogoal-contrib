@@ -102,7 +102,7 @@ class TelegramLogger(Logger):
             pareto_front += "\n---------------\n<code>"
             pareto_front += repr(self.bests_pipelines[i])
             pareto_front += "</code>\n"
-            pareto_front += f"macro F1=<code>{self.bests[i][0]}</code>, RAM usage=<code>{self.bests[i][1]}</code>"
+            pareto_front += f"macro F1=<code>{self.bests[i][0]}</code>, Eval Time=<code>{self.bests[i][1]} seconds</code>"
             pareto_front += "\n---------------\n"
         pareto_front += "]"
         

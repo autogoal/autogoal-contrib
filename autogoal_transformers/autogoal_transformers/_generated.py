@@ -26,8 +26,8 @@ class TEC_Facebook_BartLargeMnli(PretrainedZeroShotClassifier):
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 @nice_repr
 class TEC_Moritzlaurer_MdebertaV3BaseMnliXnli(PretrainedZeroShotClassifier):
@@ -38,8 +38,8 @@ class TEC_Moritzlaurer_MdebertaV3BaseMnliXnli(PretrainedZeroShotClassifier):
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 @nice_repr
 class TEC_Moritzlaurer_MdebertaV3BaseXnliMultilingualNliMil7(
@@ -52,8 +52,8 @@ class TEC_Moritzlaurer_MdebertaV3BaseXnliMultilingualNliMil7(
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 
 @nice_repr
@@ -65,8 +65,8 @@ class TEC_Moritzlaurer_DebertaV3BaseMnliFeverAnli(PretrainedZeroShotClassifier):
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 
 @nice_repr
@@ -78,8 +78,8 @@ class TEC_Sileod_DebertaV3BaseTasksourceNli(PretrainedZeroShotClassifier):
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 
 @nice_repr
@@ -93,8 +93,8 @@ class TEC_Moritzlaurer_DebertaV3LargeMnliFeverAnliLingWanli(
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 
 @nice_repr
@@ -106,8 +106,8 @@ class TEC_Valhalla_DistilbartMnli(PretrainedZeroShotClassifier):
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 
 @nice_repr
@@ -119,8 +119,8 @@ class TEC_Moritzlaurer_DebertaV3BaseZeroshotV1(PretrainedZeroShotClassifier):
     num_classes = 2
     tags = 2
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 
 @nice_repr
@@ -132,8 +132,8 @@ class TEC_Typeform_DistilbertBaseUncasedMnli(PretrainedZeroShotClassifier):
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 
 @nice_repr
@@ -145,8 +145,8 @@ class TEC_Moritzlaurer_MultilingualMinilmv2L6MnliXnli(PretrainedZeroShotClassifi
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 
 @nice_repr
@@ -158,8 +158,8 @@ class TEC_Vicgalle_XlmRobertaLargeXnliAnli(PretrainedZeroShotClassifier):
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)
 
 
 @nice_repr
@@ -171,5 +171,5 @@ class TEC_CrossEncoder_NliDistilrobertaBase(PretrainedZeroShotClassifier):
     num_classes = 3
     tags = 3
 
-    def __init__(self):
-        PretrainedZeroShotClassifier.__init__(self)
+    def __init__(self, batch_size = 4112):
+        PretrainedZeroShotClassifier.__init__(self, batch_size)

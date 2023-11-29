@@ -1,12 +1,10 @@
 import json
 from transformers import AutoModel, AutoTokenizer, AutoConfig
 from huggingface_hub import HfApi, ModelFilter 
-import progressbar
 import re
 from enum import Enum
 
 import requests
-from bs4 import BeautifulSoup
 
 class DOWNLOAD_MODE(Enum):
     HUB = "hub"
@@ -24,14 +22,17 @@ def get_hf_models(target_task):
     return hf_api.list_models(filter=ModelFilter(task = target_task, library="pytorch"))
 
 def get_hf_models_sorted_by_likes(target_task, min_likes, min_downloads):
+    from bs4 import BeautifulSoup
     page = 0
     count = 0
+    
     while True:
         url = f"https://huggingface.co/models?pipeline_tag={target_task}&sort=likes"
         if page > 0:
             url += f"&p={page}"
 
         response = requests.get(url)
+        
         soup = BeautifulSoup(response.content.decode('utf8'))
 
         for model in soup.find_all('article'):
@@ -69,14 +70,19 @@ def get_models_info(target_task, max_amount, min_likes=None, min_downloads=None,
     # regex for detecting partially trained models
     pattern = r"train-\d+"
 
-    # setup progress bar
-    bar = progressbar.ProgressBar(
-        maxval=1000,
-        widgets=[progressbar.Bar("=", "[", "]"), " ", progressbar.Percentage()],
-    )
+    try:
+        import progressbar
 
-    # Start the progress bar
-    bar.start()
+        # setup progress bar
+        bar = progressbar.ProgressBar(
+            maxval=1000,
+            widgets=[progressbar.Bar("=", "[", "]"), " ", progressbar.Percentage()],
+        )
+
+        # Start the progress bar
+        bar.start()
+    except:
+        pass
 
     # Get model metadata
     model_info = []
@@ -114,7 +120,11 @@ def get_models_info(target_task, max_amount, min_likes=None, min_downloads=None,
             }
             model_info.append(info)
             current += 1
-            bar.update(current)
+            
+            try:
+                bar.update(current)
+            except:
+                pass
         except Exception as e:
             pass
 

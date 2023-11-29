@@ -15,7 +15,7 @@ from autogoal.kb import AlgorithmBase, Supervised
 import numpy as np
 
 @nice_repr
-class CountVectorizerNoTokenize(_CountVectorizer, SklearnTransformer):
+class CountVectorizerTokenizeStem(_CountVectorizer, SklearnTransformer):
     def __init__(
         self,
         lowercase: BooleanValue(),
@@ -242,7 +242,7 @@ class AggregatedTransformer(SklearnTransformer):
         return SklearnTransformer.run(self, X)
 
 __all__ = [
-    "CountVectorizerNoTokenize",
+    "CountVectorizerTokenizeStem",
     "FeatureSparseVectorizer",
     "FeatureDenseVectorizer",
     "CRFTagger",
