@@ -7,7 +7,7 @@ from autogoal.grammar import CategoricalValue
 from autogoal.kb import (AlgorithmBase, MatrixContinuousDense, Sentence, Seq,
                          Tensor3, Word)
 from autogoal.utils import is_cuda_multiprocessing_enabled, nice_repr
-import tqdm
+from tqdm import tqdm
 
 @nice_repr
 class BertEmbedding(AlgorithmBase):
@@ -40,6 +40,10 @@ class BertEmbedding(AlgorithmBase):
 
     If you are using the development container the model should be already downloaded for you.
     """
+
+    @classmethod
+    def is_upscalable(cls) -> bool:
+        return False
 
     use_cache = False
 
@@ -169,14 +173,19 @@ class BertSequenceEmbedding(AlgorithmBase):
 
     If you are using the development container the model should be already downloaded for you.
     """
+    
+    @classmethod
+    def is_upscalable(cls) -> bool:
+        return False
 
     use_cache = False
 
     def __init__(
         self, 
-        merge_mode: CategoricalValue("avg", "first") = "avg", 
+        merge_mode: CategoricalValue("avg", "first") = "avg",
+        batch_size = 4112,
         *, 
-        verbose=False
+        verbose=True
     ):  # , length: Discrete(16, 512)):
         self.device = (
             torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
@@ -186,6 +195,7 @@ class BertSequenceEmbedding(AlgorithmBase):
         self.merge_mode = merge_mode
         self.model = None
         self.tokenizer = None
+        self.batch_size = batch_size
 
     def print(self, *args, **kwargs):
         if not self.verbose:
@@ -222,41 +232,44 @@ class BertSequenceEmbedding(AlgorithmBase):
                 )
             except Exception as e:
                 raise e
-
+                
         self.print("Tokenizing...", end="", flush=True)
         bert_tokens = [[self.tokenizer.tokenize(word) for word in sentence] for sentence in input]
-        bert_sequences = [self.tokenizer.encode_plus(
-            [t for tokens in sentence for t in tokens], return_tensors="pt", padding=True, truncation=True,
-        ).to(self.device) for sentence in bert_tokens]
         self.print("done")
 
         matrices = []
-        for bert_sequence in bert_sequences:
-            with torch.no_grad():
-                self.print("Embedding...", end="", flush=True)
-                output = self.model(**bert_sequence).last_hidden_state
-                output = output.squeeze(0)
-                self.print("done")
-                
-            # delete the reference so we can clean the GRAM
-            del bert_sequence
-            
-            count = 0
-            matrix = []
-            for i, token in enumerate(input):
-                contiguous = len(bert_tokens[i])
-                vectors = output[count : count + contiguous, :]
-                vector = self._merge(vectors.to('cpu'))
-                matrix.append(vector)
-                count += contiguous
-                
+        original_sequence_index = 0
+        for i in tqdm(range(0, len(input), self.batch_size), desc="Processing batches"):
+            batch = bert_tokens[i:i+self.batch_size]
+            bert_sequences = [self.tokenizer.encode_plus(
+                [t for tokens in sentence for t in tokens], return_tensors="pt", padding=True, truncation=True,
+            ).to(self.device) for sentence in batch]
+
+            for bert_sequence in bert_sequences:
+                with torch.no_grad():
+                    output = self.model(**bert_sequence).last_hidden_state
+                    output = output.squeeze(0)
+                    
                 # delete the reference so we can clean the GRAM
-                del vectors
+                del bert_sequence
+                
+                count = 0
+                matrix = []
+                for i, token in enumerate(input[original_sequence_index]):
+                    contiguous = len(bert_tokens[original_sequence_index][i])
+                    vectors = output[count : count + contiguous, :]
+                    vector = self._merge(vectors.to('cpu'))
+                    matrix.append(vector)
+                    count += contiguous
+                    
+                    # delete the reference so we can clean the GRAM
+                    del vectors
 
-            matrix = np.vstack(matrix)
-            matrices.append(matrix)
+                matrix = np.vstack(matrix)
+                matrices.append(matrix)
+                original_sequence_index+=1
 
-        torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
 
         return matrices
 
