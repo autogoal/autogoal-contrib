@@ -21,7 +21,7 @@ from autogoal.grammar import DiscreteValue
 from autogoal.utils import is_cuda_multiprocessing_enabled
 import time
 import warnings
-
+from tqdm import tqdm
 
 class TransformersWrapper(AlgorithmBase):
     """
@@ -192,7 +192,7 @@ class PetrainedTextClassifier(TransformersWrapper):
         return TransformersWrapper.run(self, X, y)
 
 class PretrainedZeroShotClassifier(TransformersWrapper):
-    def __init__(self, batch_size, verbose=True) -> None:
+    def __init__(self, batch_size, verbose=False) -> None:
         super().__init__()
         self.batch_size = batch_size
         self.verbose = verbose
@@ -243,7 +243,7 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
         start = time.time()
         
         count = 0
-        for i in range(0, len(X), self.batch_size):
+        for i in tqdm(range(0, len(X), self.batch_size), desc="Processing batches"):
             batch = X[i:i+self.batch_size]
             self.print(f"Batch {count} with {len(batch)} items", end="", flush=True)
             count+=1
