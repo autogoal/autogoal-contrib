@@ -2,7 +2,7 @@ from autogoal.datasets import semeval_2023_task_8_1 as semeval
 from autogoal.datasets.semeval_2023_task_8_1 import F1_beta_plain, precision_plain, recall_plain, macro_f1_plain, macro_f1
 from autogoal_sklearn._generated import MultinomialNB, MinMaxScaler, Perceptron, CountVectorizer, TfidfTransformer, KNNImputer
 from autogoal_sklearn._manual import ClassifierTransformerTagger, ClassifierTagger, AggregatedTransformer
-from autogoal_transformers._bert import BertEmbedding, BertTokenizeEmbedding
+from autogoal_transformers._bert import BertEmbedding, BertSequenceEmbedding
 from autogoal_transformers._generated import TEC_Moritzlaurer_DebertaV3BaseMnliFeverAnli
 from autogoal_transformers._tc_generated import TOC_Dslim_BertBaseNer
 from autogoal_transformers._manual import SeqPretrainedTokenClassifier
@@ -10,9 +10,10 @@ from autogoal_keras import KerasSequenceClassifier
 from autogoal.kb import Seq, Word, VectorCategorical, MatrixCategorical, Supervised, Tensor, Categorical, Dense, Label, Pipeline, Sentence
 from autogoal.datasets.meddocan import F1_beta, precision, recall
 from autogoal.ml import AutoML, peak_ram_usage, evaluation_time
-from autogoal.search import RichLogger, NSPESearch
+from autogoal.search import RichLogger, NSPESearch, JsonLogger
 from autogoal_telegram import TelegramLogger
 from autogoal.utils import Gb, Min, initialize_cuda_multiprocessing
+from sklearn.model_selection import train_test_split
 
 from autogoal_contrib import find_classes
 
@@ -56,10 +57,10 @@ def test_semeval_token_classification():
         input=(Seq[Seq[Word]], Supervised[Seq[Seq[Label]]]),
         output=Seq[Seq[Label]],
         search_algorithm=NSPESearch,
-        registry=[AggregatedTransformer, KNNImputer, Perceptron, ClassifierTagger, BertEmbedding],#find_classes(include="TOC") + [SeqPretrainedTokenClassifier],#[BertEmbedding, ClassifierTagger, ClassifierTransformerTagger, Perceptron, MultinomialNB, MinMaxScaler, TOC_Dslim_BertBaseNer],#,#[BertEmbedding, ClassifierTagger, ClassifierTransformerTagger, Perceptron, MultinomialNB, MinMaxScaler, Arbert_RobertaBaseFinetunedNerKmeansTwitter],
-        objectives=(macro_f1, peak_ram_usage),
+        registry=[AggregatedTransformer, KNNImputer, Perceptron, ClassifierTagger, BertSequenceEmbedding],#find_classes(include="TOC") + [SeqPretrainedTokenClassifier],#[BertEmbedding, ClassifierTagger, ClassifierTransformerTagger, Perceptron, MultinomialNB, MinMaxScaler, TOC_Dslim_BertBaseNer],#,#[BertEmbedding, ClassifierTagger, ClassifierTransformerTagger, Perceptron, MultinomialNB, MinMaxScaler, Arbert_RobertaBaseFinetunedNerKmeansTwitter],
+        objectives=(macro_f1, evaluation_time),
         maximize=(True, False),
-        evaluation_timeout=2*Min,
+        evaluation_timeout=20*Min,
         pop_size=10,
         memory_limit=20*Gb,
         search_timeout=5*Min
@@ -85,8 +86,8 @@ def test_semeval_sentence_classification():
     a = AutoML(
         input=(Seq[Sentence], Supervised[VectorCategorical]),
         output=VectorCategorical,
-        registry=find_classes(exclude="TEC|Bert|Keras"),
-        objectives=(macro_f1_plain, evaluation_time),
+        registry=find_classes(exclude="TEC"),
+        objectives=(macro_f1_plain, peak_ram_usage),
         maximize=(True, False),
         evaluation_timeout=3*Min,
         search_timeout=10*Min,
@@ -101,13 +102,129 @@ def test_semeval_sentence_classification():
     X_test = X[amount:2*amount]
     y_test = y[amount:2*amount]
     
-    loggers = [RichLogger()]#, TelegramLogger(token="6425450979:AAF4Mic12nAWYlfiMNkCTRB0ZzcgaIegd7M", channel="570734906", name="test")]
+    loggers = [
+        RichLogger(),
+        JsonLogger("test.json"),
+        TelegramLogger(token="6425450979:AAF4Mic12nAWYlfiMNkCTRB0ZzcgaIegd7M", channel="570734906", name="test", objectives=["Macro F1", ("RAM", "KB")])]
     a.fit(X_train, y_train, logger=loggers)
     
     results = a.score(X_test, y_test)
     print(f"F1: {results}")
+    
+    
+def get_token_dataset_properties():
+    def get_proportions(data):
+        classes = ['claim', 'per_exp', 'claim_per_exp', 'question', 'O']
+        proportions = [0] * len(classes)
+        for sample in data:
+            for i, cls in enumerate(classes):
+                proportions[i] += sample.count(cls)
+        total_samples = sum([len(di) for di in data])
+        average_proportions = [count / total_samples for count in proportions]
+        return average_proportions
+
+    X, y, X_test, y_test = semeval.load(mode=semeval.TaskTypeSemeval.TokenClassification, data_option=semeval.SemevalDatasetSelection.Original)
+    
+    # print(len(X), len(X_test))
+    
+    # get average len of X + X_test
+    # print(sum([len(x) for x in X + X_test])/(len(X) + len(X_test)))
+    # print(sum([len(x) for x in X])/(len(X)) )
+    # print(sum([len(x) for x in X_test])/(len(X_test)))
+    
+    # get average proportions of each class in X and X_test 
+    
+    y_average_proportions = get_proportions(y)
+    y_test_average_proportions = get_proportions(y_test)
+    print("Average proportions in y:", y_average_proportions)
+    print("Average proportions in y_test:", y_test_average_proportions)
+    
+    import plotly.graph_objects as go
+    import plotly.io as py
+    # Assuming your data is structured like this:
+    x = ['claim', 'per_exp', 'claim_per_exp', 'question', 'O']
+    # Create a trace for each dataset
+    trace1 = go.Bar(x=x, y=y_average_proportions, name='Train Split')
+    trace2 = go.Bar(x=x, y=y_test_average_proportions, name='Test Split')
+    # Create the figure and add the traces
+    fig = go.Figure(data=[trace1, trace2])
+    # Update the layout to have the barmode be 'group's
+    fig.update_layout(
+        xaxis_tickfont_size=16,
+        yaxis_tickfont_size=16,
+        legend=dict(
+            x=0,
+            y=1.0,
+            bgcolor='rgba(255, 255, 255, 0)',
+            bordercolor='rgba(255, 255, 255, 0)'
+        ),
+        barmode='group',
+        bargap=0.2, # gap between bars of adjacent location coordinates.
+        bargroupgap=0.1 # gap between bars of the same location coordinate.
+    )
+    # Save the figure as a jpg image
+    py.write_image(fig, 'token_data_proportions.jpg', scale=3)
+        
+            
+def get_sentence_dataset_properties():
+    def get_proportions(data):
+        classes = ['claim', 'per_exp', 'claim_per_exp', 'question', 'O']
+        proportions = [0] * len(classes)
+        for i, cls in enumerate(classes):
+            proportions[i] += data.count(cls)
+        total_samples = len(data)
+        average_proportions = [count / total_samples for count in proportions]
+        return average_proportions
+
+    X, y, _, _ = semeval.load(mode=semeval.TaskTypeSemeval.SentenceClassification, data_option=semeval.SemevalDatasetSelection.Original, classes_mapping=semeval.TargetClassesMapping.Original)
+    X, X_test, y, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    
+    print(len(X), len(X_test))
+    
+    # get average len of X + X_test
+    print(sum([len(x) for x in X + X_test])/(len(X) + len(X_test)))
+    print(sum([len(x) for x in X])/(len(X)) )
+    print(sum([len(x) for x in X_test])/(len(X_test)))
+    
+    # get average proportions of each class in X and X_test 
+    
+    y_average_proportions = get_proportions(y)
+    y_test_average_proportions = get_proportions(y_test)
+    print("Average proportions in y:", y_average_proportions)
+    print("Average proportions in y_test:", y_test_average_proportions)
+    
+    import plotly.graph_objects as go
+    import plotly.io as py
+    # Assuming your data is structured like this:
+    x = ['claim', 'per_exp', 'claim_per_exp', 'question', 'O']
+    # Create a trace for each dataset
+    trace1 = go.Bar(x=x, y=y_average_proportions, name='Train Split')
+    trace2 = go.Bar(x=x, y=y_test_average_proportions, name='Test Split')
+    # Create the figure and add the traces
+    fig = go.Figure(data=[trace1, trace2])
+    # Update the layout to have the barmode be 'group's
+    fig.update_layout(
+        xaxis_tickfont_size=16,
+        yaxis_tickfont_size=16,
+        legend=dict(
+            x=0,
+            y=1.0,
+            bgcolor='rgba(255, 255, 255, 0)',
+            bordercolor='rgba(255, 255, 255, 0)'
+        ),
+        barmode='group',
+        bargap=0.2, # gap between bars of adjacent location coordinates.
+        bargroupgap=0.1 # gap between bars of the same location coordinate.
+    )
+    # Save the figure as a jpg image
+    py.write_image(fig, 'sentence_data_proportions.jpg', scale=3)
+    
+    
+    
 
 if __name__ == '__main__':
+    # get_sentence_dataset_properties()
+    # get_token_dataset_properties()
     
     # BertTokenizeEmbedding.download()
     # BertEmbedding.download()
@@ -116,29 +233,28 @@ if __name__ == '__main__':
     # test_pipeline(3000)
     # from autogoal.utils._process import initialize_cuda_multiprocessing
     
-    # test_semeval_token_classification()
     # initialize_cuda_multiprocessing()
-    # test_semeval_sentence_classification()
+    # test_semeval_token_classification()
+    test_semeval_sentence_classification()
     
-    # X, y, X_test, y_test = semeval.load(mode=semeval.TaskTypeSemeval.TokenClassification, data_option=semeval.SemevalDatasetSelection.Original, verbose=True)
-    # print(f"token-classification dataset size: {len(X) + len(X_test)}")
-    
-    # X, y, _, _ = semeval.load(mode=semeval.TaskTypeSemeval.SentenceClassification, data_option=semeval.SemevalDatasetSelection.Original, verbose=True)
-    # print(f"sentence-classification dataset size: {len(X)}")
-    
-    import numpy as np
-    from deap import base, creator, tools, algorithms
-    import random
-    import sys
+    # def get_proportions(list):
+    #     # Calculate the sum of each component across all tuples
+    #     component_sums = [sum(tup[i] for tup in list) for i in range(len(list[0]))]
+    #     # Calculate the total sum of all components
+    #     total_sum = sum(component_sums)
+    #     # Calculate the proportion of each component
+
+    # import numpy as np
+    # from deap import base, creator, tools, algorithms
+    # import random
+    # import sys
     
     # # print(len(y))
     # # print(len(selected_y))
     
-    # X, y, X_test, y_test = semeval.load(mode=semeval.TaskTypeSemeval.TokenClassification, data_option=semeval.SemevalDatasetSelection.Original)
-    # # # print(len(X_train)/len(X_test))
+    # # X_train, y_train, X_test, y_test = semeval.load(mode=semeval.TaskTypeSemeval.TokenClassification, data_option=semeval.SemevalDatasetSelection.Original)
+    # # print(len(X_train)/len(X_test))
     
-    # X = X + X_test
-    # y = y + y_test
     
     # classes = ['O', 'claim', 'per_exp', 'claim_per_exp', 'question']
     
@@ -147,13 +263,6 @@ if __name__ == '__main__':
     #     counts = tuple(yi.count(cls) for cls in classes)
     #     counts = tuple(count / sum(counts) for count in counts)
     #     original_list.append(counts)
-        
-    # def get_proportions(list):
-    #     # Calculate the sum of each component across all tuples
-    #     component_sums = [sum(tup[i] for tup in list) for i in range(len(list[0]))]
-    #     # Calculate the total sum of all components
-    #     total_sum = sum(component_sums)
-    #     # Calculate the proportion of each component
         
     #     try:
     #         return [comp_sum / total_sum for comp_sum in component_sums]
@@ -166,8 +275,6 @@ if __name__ == '__main__':
     # def func(original_list, selected_indexes):
     #     if len(selected_indexes) == 0:
     #         return sys.float_info.max
-        
-    #     current_selection_distance = abs(len(list(set(selected_indexes))) - len(y)*0.2) 
     
     #     notselected = [original_list[i] for i in range(len(original_list)) if i not in selected_indexes]
     #     selected = [original_list[i] for i in selected_indexes]
@@ -175,7 +282,7 @@ if __name__ == '__main__':
     #     notselected_proportions = get_proportions(notselected)
     #     selected_proportions = get_proportions(selected)
         
-    #     return euclidean_distance(notselected_proportions, selected_proportions) * 10 + current_selection_distance
+    #     return euclidean_distance(notselected_proportions, selected_proportions)
         
         
     # # Define the fitness function
@@ -208,7 +315,7 @@ if __name__ == '__main__':
     #     stats.register("min", np.min)
     #     stats.register("max", np.max)
         
-    #     pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=200, stats=stats, halloffame=hof, verbose=True)\
+    #     pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=10, stats=stats, halloffame=hof, verbose=True)\
         
     #     best_indexes = hof[0]
     #     best_list = [original_list[i] for i in best_indexes]

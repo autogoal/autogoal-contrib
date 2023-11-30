@@ -8,7 +8,7 @@ from telegram import Bot
 import re
 
 class TelegramLogger(Logger):
-    def __init__(self, token, channel: str = None, name=""):
+    def __init__(self, token, channel: str = None, name="", objectives=None):
         self.name = name
         self.channel = int(channel) if channel and channel.isdigit() else channel
         self.last_time = time.time()
@@ -16,6 +16,8 @@ class TelegramLogger(Logger):
         self.updater = Updater(token)
         self.dispatcher = self.updater.dispatcher
         self.progress = 0
+        self.errors = 0
+        self.timeout_errors = 0
         self.generations = 1
         self.bests = []
         self.bests_pipelines = []
@@ -30,6 +32,7 @@ class TelegramLogger(Logger):
             text=f"<b>{self.name} currently:</b>\nStarting...",
             parse_mode="HTML",
         )
+        self.objectives = objectives
 
     def begin(self, generations, pop_size):
         self.generations = generations
@@ -66,6 +69,10 @@ class TelegramLogger(Logger):
         Pipeline: <code>{repr(solution)}</code>
         Error: <u>{e}</u>
         """
+        self.errors += 1
+        if re.search("timeout", str(e).lower()):
+            self.timeout_errors += 1
+        
         self._send_update(textwrap.dedent(text))
         
     def eval_solution(self, solution, fitness):
@@ -99,17 +106,46 @@ class TelegramLogger(Logger):
         self.last_time = time.time()
         pareto_front = "["
         for i in range(len(self.bests_pipelines)):
+            
+            eval_text=""
+            if not self.objectives:
+                eval_text = f"({self.bests[i][0]}, {self.bests[i][1]})"
+            else:
+                initial = True
+                for j in range(len(self.objectives)):
+                    obj_name = ""
+                    unit = ""
+                    
+                    if not initial:
+                        eval_text += ", "
+                    else:
+                        initial = False
+                    
+                    if isinstance(self.objectives[j], tuple):
+                        obj_name = self.objectives[j][0]
+                        unit = self.objectives[j][1]
+                    elif isinstance(self.objectives[j], str):
+                        obj_name = self.objectives[j]
+                        
+                    eval_text += f"{obj_name}=<code>{self.bests[i][j]}"
+                    eval_text += f" {unit}" if unit else ""
+                    eval_text += "</code>"
+            
             pareto_front += "\n---------------\n<code>"
             pareto_front += repr(self.bests_pipelines[i])
             pareto_front += "</code>\n"
-            pareto_front += f"macro F1=<code>{self.bests[i][0]}</code>, Eval Time=<code>{self.bests[i][1]} seconds</code>"
+            pareto_front += eval_text
             pareto_front += "\n---------------\n"
         pareto_front += "]"
         
         text = textwrap.dedent(
             f"""
             <b>{self.name}</b>
+            
             Iterations: `{self.progress}/{self.generations}`
+            Errors: `{self.errors}/{self.progress}`
+            Timeouts: `{self.timeout_errors}/{self.errors}`
+            
             Best fitness: `{self.bests}`
             Pareto Front: `{pareto_front}`
             """
