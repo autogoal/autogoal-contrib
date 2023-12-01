@@ -13,6 +13,7 @@ from autogoal.grammar import (
 from autogoal.utils import nice_repr
 from autogoal.kb import AlgorithmBase, Supervised
 import numpy as np
+from scipy.sparse import vstack
 
 @nice_repr
 class CountVectorizerTokenizeStem(_CountVectorizer, SklearnTransformer):
@@ -108,13 +109,16 @@ class ClassifierTagger(SklearnEstimator):
         SklearnEstimator.__init__(self)
         self.classifier = classifier
         
+    def _concatenate(self, items):
+        return [embedding for sublist in items for embedding in sublist]
+        
     def fit(self, X, y):
         # Save the starting index of each sublist in X
         self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
         self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
 
         # Concatenate X and y into single lists
-        X_concat = [embedding for sublist in X for embedding in sublist]
+        X_concat = self._concatenate(X)
         y_concat = [label for sublist in y for label in sublist]
         
         # Fit the classifier
@@ -123,7 +127,7 @@ class ClassifierTagger(SklearnEstimator):
 
     def predict(self, X):
         # Concatenate X into a single list of embeddings
-        X_concat = [embedding for sublist in X for embedding in sublist]
+        X_concat = self._concatenate(X)
         
         # Predict using the classifier
         y_pred_concat = self.classifier.predict(X_concat)
@@ -140,7 +144,25 @@ class ClassifierTagger(SklearnEstimator):
         return y_pred
 
     def run(
-        self, X: Seq[MatrixContinuous], y: Supervised[Seq[Seq[Label]]]
+        self, X: Seq[MatrixContinuousDense], y: Supervised[Seq[Seq[Label]]]
+    ) -> Seq[Seq[Label]]:
+        return SklearnEstimator.run(self, X, y)
+
+@nice_repr
+class SparseClassifierTagger(ClassifierTagger):
+    def __init__(
+        self, 
+        classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)
+    ) -> None:
+        SklearnEstimator.__init__(self)
+        self.classifier = classifier
+        
+    def _concatenate(self, items):
+        sparse_matrices = [embedding for sublist in items for embedding in sublist]
+        return vstack(sparse_matrices)
+
+    def run(
+        self, X: Seq[MatrixContinuousSparse], y: Supervised[Seq[Seq[Label]]]
     ) -> Seq[Seq[Label]]:
         return SklearnEstimator.run(self, X, y)
 
@@ -163,13 +185,16 @@ class ClassifierTransformerTagger(SklearnEstimator):
         self.classifier = classifier
         self.transformer = transformer
         
+    def _concatenate(self, items):
+        return [embedding for sublist in items for embedding in sublist]
+        
     def fit(self, X, y):
         # Save the starting index of each sublist in X
         self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
         self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
 
         # Concatenate X and y into single lists
-        X_concat = [embedding for sublist in X for embedding in sublist]
+        X_concat = self._concatenate(X)
         y_concat = [label for sublist in y for label in sublist]
         
         if (self.transformer):
@@ -181,7 +206,7 @@ class ClassifierTransformerTagger(SklearnEstimator):
 
     def predict(self, X):
         # Concatenate X into a single list of embeddings
-        X_concat = [embedding for sublist in X for embedding in sublist]
+        X_concat = self._concatenate(X)
 
         if (self.transformer):
             X_concat = self.transformer.fit_transform(X_concat)
@@ -195,7 +220,27 @@ class ClassifierTransformerTagger(SklearnEstimator):
         return y_pred
 
     def run(
-        self, X: Seq[MatrixContinuous], y: Supervised[Seq[Seq[Label]]]
+        self, X: Seq[MatrixContinuousDense], y: Supervised[Seq[Seq[Label]]]
+    ) -> Seq[Seq[Label]]:
+        return SklearnEstimator.run(self, X, y)
+
+@nice_repr
+class SparseClassifierTransformerTagger(ClassifierTransformerTagger):
+    def __init__(
+        self, 
+        transformer: algorithm(MatrixContinuousSparse, MatrixContinuousSparse),
+        classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)
+    ) -> None:
+        SklearnEstimator.__init__(self)
+        self.classifier = classifier
+        self.transformer = transformer
+        
+    def _concatenate(self, items):
+        sparse_matrices = [embedding for sublist in items for embedding in sublist]
+        return vstack(sparse_matrices)
+        
+    def run(
+        self, X: Seq[MatrixContinuousSparse], y: Supervised[Seq[Seq[Label]]]
     ) -> Seq[Seq[Label]]:
         return SklearnEstimator.run(self, X, y)
 
@@ -207,6 +252,9 @@ class AggregatedTransformer(SklearnTransformer):
     ) -> None:
         SklearnTransformer.__init__(self)
         self.transformer = transformer
+        
+    def _concatenate(self, items):
+        return [embedding for sublist in items for embedding in sublist]
     
     def fit_transform(self, X, y=None):
         # Save the starting index of each sublist in X
@@ -214,32 +262,84 @@ class AggregatedTransformer(SklearnTransformer):
         self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
         
         # Concatenate X and y into single lists
-        X_concat = [embedding for sublist in X for embedding in sublist]
+        X_concat = self._concatenate(X)
         
         if hasattr(self, "partial_fit"):
             self.partial_fit(X_concat)
-            result = self.transformer.transform(X_concat)
         else:
-            result = self.transformer.fit_transform(X_concat)
+            self.transformer.fit(X_concat)
             
-        # Deconcatenate y_pred to match the original shape of X
-        return [np.array([result[y_pos + i] for i in range(len(sub_X) if isinstance(sub_X, list) else sub_X.shape[0])]) for y_pos, sub_X in enumerate(X)]
+        # call transform for each element in X
+        return self.transform(X)
 
     def transform(self, X, y=None):
+        return [self.transformer.transform(sub_X) for sub_X in X]
+        
+    def run(self, X: Seq[MatrixContinuousDense]) -> Seq[MatrixContinuousDense]:
+        return SklearnTransformer.run(self, X)
+
+@nice_repr
+class SparseAggregatedTransformer(AggregatedTransformer):
+    def __init__(
+        self, 
+        transformer: algorithm(MatrixContinuousSparse, MatrixContinuousSparse)
+    ) -> None:
+        SklearnTransformer.__init__(self)
+        self.transformer = transformer
+    
+    def _concatenate(self, items):
+        sparse_matrices = [embedding for sublist in items for embedding in sublist]
+        return vstack(sparse_matrices)
+        
+    def run(self, X: Seq[MatrixContinuousSparse]) -> Seq[MatrixContinuousSparse]:
+        return SklearnTransformer.run(self, X)
+
+@nice_repr
+class AggregatedVectorizer(SklearnTransformer):
+    def __init__(
+        self, 
+        vectorizer: algorithm(Seq[Sentence], MatrixContinuousDense)
+    ) -> None:
+        SklearnTransformer.__init__(self)
+        self.vectorizer = vectorizer
+        
+    def _concatenate(self, items):
+        return [embedding for sublist in items for embedding in sublist]
+    
+    def fit_transform(self, X, y=None):
         # Save the starting index of each sublist in X
         self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
         self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
         
         # Concatenate X and y into single lists
-        X_concat = [embedding for sublist in X for embedding in sublist]
+        X_concat = self._concatenate(X)
         
-        result = self.transformer.transform(X_concat)
+        if hasattr(self, "partial_fit"):
+            self.partial_fit(X_concat)
+        else:
+            self.vectorizer.fit(X_concat)
             
-        # Deconcatenate y_pred to match the original shape of X
-        return [np.array([result[y_pos + i] for i in range(len(sub_X) if isinstance(sub_X, list) else sub_X.shape[0])]) for y_pos, sub_X in enumerate(X)]
+        # call transform for each element in X
+        return self.transform(X)
+
+    def transform(self, X, y=None):
+        return [self.vectorizer.transform(sub_X) for sub_X in X]
         
-    def run(self, X: Seq[MatrixContinuous]) -> Seq[MatrixContinuous]:
+    def run(self, X: Seq[Seq[Sentence]]) -> Seq[MatrixContinuousDense]:
         return SklearnTransformer.run(self, X)
+    
+@nice_repr
+class SparseAggregatedVectorizer(AggregatedVectorizer):
+    def __init__(
+        self, 
+        vectorizer: algorithm(Seq[Sentence], MatrixContinuousSparse)
+    ) -> None:
+        SklearnTransformer.__init__(self)
+        self.vectorizer = vectorizer
+    
+    def run(self, X: Seq[Seq[Sentence]]) -> Seq[MatrixContinuousSparse]:
+        return SklearnTransformer.run(self, X)
+
 
 __all__ = [
     "CountVectorizerTokenizeStem",
@@ -247,5 +347,11 @@ __all__ = [
     "FeatureDenseVectorizer",
     "CRFTagger",
     "ClassifierTagger",
-    "ClassifierTransformerTagger"
+    "SparseClassifierTagger",
+    "ClassifierTransformerTagger",
+    "SparseClassifierTransformerTagger",
+    "AggregatedVectorizer",
+    "SparseAggregatedVectorizer",
+    "AggregatedTransformer",
+    "SparseAggregatedTransformer",
 ]

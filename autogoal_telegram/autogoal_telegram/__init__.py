@@ -70,7 +70,7 @@ class TelegramLogger(Logger):
         Error: <u>{e}</u>
         """
         self.errors += 1
-        if re.search("timeout", str(e).lower()):
+        if re.search("time for execution", str(e).lower()):
             self.timeout_errors += 1
         
         self._send_update(textwrap.dedent(text))
@@ -143,7 +143,7 @@ class TelegramLogger(Logger):
             <b>{self.name}</b>
             
             Iterations: `{self.progress}/{self.generations}`
-            Errors: `{self.errors}/{self.progress}`
+            Errors: `{self.errors}`
             Timeouts: `{self.timeout_errors}/{self.errors}`
             
             Best fitness: `{self.bests}`
