@@ -16,7 +16,7 @@ import numpy as np
 from scipy.sparse import vstack
 
 @nice_repr
-class CountVectorizerTokenizeStem(_CountVectorizer, SklearnTransformer):
+class CountVectorizerStopwordTokenizeStem(_CountVectorizer, SklearnTransformer):
     def __init__(
         self,
         lowercase: BooleanValue(),
@@ -40,6 +40,33 @@ class CountVectorizerTokenizeStem(_CountVectorizer, SklearnTransformer):
             tokens = (
                 self.inner_stopwords.run(sentence) if self.stopwords_remove else tokens
             )
+            return [self.inner_stemmer.run(token) for token in tokens]
+
+        return func
+
+    def run(self, input: Seq[Sentence]) -> MatrixContinuousSparse:
+        return SklearnTransformer.run(self, input)
+
+@nice_repr
+class CountVectorizerTokenizeStem(_CountVectorizer, SklearnTransformer):
+    def __init__(
+        self,
+        lowercase: BooleanValue(),
+        stopwords_remove: BooleanValue(),
+        binary: BooleanValue(),
+        inner_tokenizer: algorithm(Sentence, Seq[Word]),
+        inner_stemmer: algorithm(Word, Stem),
+    ):
+        self.stopwords_remove = stopwords_remove
+        self.inner_tokenizer = inner_tokenizer
+        self.inner_stemmer = inner_stemmer
+
+        SklearnTransformer.__init__(self)
+        _CountVectorizer.__init__(self, lowercase=lowercase, binary=binary)
+
+    def build_tokenizer(self):
+        def func(sentence):
+            tokens = self.inner_tokenizer.run(sentence)
             return [self.inner_stemmer.run(token) for token in tokens]
 
         return func
@@ -294,18 +321,49 @@ class SparseAggregatedTransformer(AggregatedTransformer):
     def run(self, X: Seq[MatrixContinuousSparse]) -> Seq[MatrixContinuousSparse]:
         return SklearnTransformer.run(self, X)
 
+# @nice_repr
+# class AggregatedVectorizer(SklearnTransformer):
+#     def __init__(
+#         self, 
+#         vectorizer: algorithm(Seq[Sentence], MatrixContinuousDense)
+#     ) -> None:
+#         SklearnTransformer.__init__(self)
+#         self.vectorizer = vectorizer
+        
+#     def _concatenate(self, items):
+#         return [embedding for sublist in items for embedding in sublist]
+    
+#     def fit_transform(self, X, y=None):
+#         # Save the starting index of each sublist in X
+#         self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
+#         self.concat_positions = np.cumsum(self.concat_positions).tolist()[:-1]
+        
+#         # Concatenate X and y into single lists
+#         X_concat = self._concatenate(X)
+        
+#         if hasattr(self, "partial_fit"):
+#             self.partial_fit(X_concat)
+#         else:
+#             self.vectorizer.fit(X_concat)
+            
+#         # call transform for each element in X
+#         return self.transform(X)
+
+#     def transform(self, X, y=None):
+#         return [self.vectorizer.transform(sub_X) for sub_X in X]
+        
+#     def run(self, X: Seq[Seq[Sentence]]) -> Seq[MatrixContinuousDense]:
+#         return SklearnTransformer.run(self, X)
+    
 @nice_repr
-class AggregatedVectorizer(SklearnTransformer):
+class SparseAggregatedVectorizer(SklearnTransformer):
     def __init__(
         self, 
-        vectorizer: algorithm(Seq[Sentence], MatrixContinuousDense)
+        vectorizer: algorithm(Seq[Sentence], MatrixContinuousSparse)
     ) -> None:
         SklearnTransformer.__init__(self)
         self.vectorizer = vectorizer
         
-    def _concatenate(self, items):
-        return [embedding for sublist in items for embedding in sublist]
-    
     def fit_transform(self, X, y=None):
         # Save the starting index of each sublist in X
         self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
@@ -324,18 +382,6 @@ class AggregatedVectorizer(SklearnTransformer):
 
     def transform(self, X, y=None):
         return [self.vectorizer.transform(sub_X) for sub_X in X]
-        
-    def run(self, X: Seq[Seq[Sentence]]) -> Seq[MatrixContinuousDense]:
-        return SklearnTransformer.run(self, X)
-    
-@nice_repr
-class SparseAggregatedVectorizer(AggregatedVectorizer):
-    def __init__(
-        self, 
-        vectorizer: algorithm(Seq[Sentence], MatrixContinuousSparse)
-    ) -> None:
-        SklearnTransformer.__init__(self)
-        self.vectorizer = vectorizer
     
     def run(self, X: Seq[Seq[Sentence]]) -> Seq[MatrixContinuousSparse]:
         return SklearnTransformer.run(self, X)
@@ -350,7 +396,7 @@ __all__ = [
     "SparseClassifierTagger",
     "ClassifierTransformerTagger",
     "SparseClassifierTransformerTagger",
-    "AggregatedVectorizer",
+    # "AggregatedVectorizer",
     "SparseAggregatedVectorizer",
     "AggregatedTransformer",
     "SparseAggregatedTransformer",
