@@ -364,6 +364,9 @@ class SparseAggregatedVectorizer(SklearnTransformer):
         SklearnTransformer.__init__(self)
         self.vectorizer = vectorizer
         
+    def _concatenate(self, items):
+        return [embedding for sublist in items for embedding in sublist]
+        
     def fit_transform(self, X, y=None):
         # Save the starting index of each sublist in X
         self.concat_positions = [0] + [len(sublist) if isinstance(sublist, list) else sublist.shape[0] for sublist in X]
