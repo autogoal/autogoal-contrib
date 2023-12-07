@@ -1,16 +1,18 @@
 from autogoal.datasets import semeval_2023_task_8_1 as semeval
+from autogoal.datasets import intentsemo
 from autogoal.datasets.semeval_2023_task_8_1 import F1_beta_plain, precision_plain, recall_plain, macro_f1_plain, macro_f1
 from autogoal_sklearn._generated import MultinomialNB, MinMaxScaler, Perceptron, CountVectorizer, TfidfTransformer, KNNImputer
-from autogoal_sklearn._manual import ClassifierTransformerTagger, ClassifierTagger, AggregatedTransformer
+from autogoal_sklearn._manual import ClassifierTransformerTagger, ClassifierTagger, AggregatedTransformer, CountVectorizerFixedVocabulary
 from autogoal_transformers._bert import BertEmbedding, BertSequenceEmbedding
 from autogoal_transformers._generated import TEC_Moritzlaurer_DebertaV3BaseMnliFeverAnli
 from autogoal_transformers._tc_generated import TOC_Dslim_BertBaseNer
 from autogoal_transformers._manual import SeqPretrainedTokenClassifier
 from autogoal_keras import KerasSequenceClassifier
-from autogoal.kb import Seq, Word, VectorCategorical, MatrixCategorical, Supervised, Tensor, Categorical, Dense, Label, Pipeline, Sentence
+from autogoal_contrib import TuppleDeagregator, SparseMatrixConcatenator, DenseMatriConcatenator, AggregatedMatrixClassifier
+from autogoal.kb import Seq, Tup, Word, VectorCategorical, VectorContinuous,MatrixContinuousSparse, MatrixCategorical,AggregatedMatrixContinuousSparse, Supervised, Tensor, Categorical, Dense, Label, Pipeline, Sentence
 from autogoal.datasets.meddocan import F1_beta, precision, recall
 from autogoal.ml import AutoML, peak_ram_usage, evaluation_time
-from autogoal.search import RichLogger, NSPESearch, JsonLogger
+from autogoal.search import RichLogger, NSPESearch, JsonLogger, PESearch
 from autogoal_telegram import TelegramLogger
 from autogoal.utils import Gb, Min, initialize_cuda_multiprocessing
 from sklearn.model_selection import train_test_split
@@ -111,6 +113,36 @@ def test_semeval_sentence_classification():
     results = a.score(X_test, y_test)
     print(f"F1: {results}")
     
+def test_intentsemo_sentence_classification():
+    X, y, _, _ = intentsemo.load(mode=intentsemo.TaskType.SentenceClassification)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    
+    X_train_0, X_train_1 = zip(*X_train)
+    X_train_0, X_train_1 = list(X_train_0), list(X_train_1)
+    
+    X_test_0, X_test_1 = zip(*X_test)
+    X_test_0, X_test_1 = list(X_test_0), list(X_test_1)
+
+    a = AutoML(
+        input=(Seq[Sentence], Seq[VectorContinuous], Supervised[VectorCategorical]),
+        output=VectorCategorical,
+        search_algorithm=PESearch,
+        registry=[TuppleDeagregator, CountVectorizer, SparseMatrixConcatenator, DenseMatriConcatenator, MultinomialNB, AggregatedMatrixClassifier],
+        objectives=macro_f1_plain,
+        evaluation_timeout=3*Min,
+        search_timeout=10*Min,
+        memory_limit=20*Gb
+    )
+    
+    loggers = [
+        RichLogger(),
+        JsonLogger("test.json")]
+        # TelegramLogger(token="6425450979:AAF4Mic12nAWYlfiMNkCTRB0ZzcgaIegd7M", channel="570734906", name="test", objectives=["Macro F1", ("RAM", "KB")])]
+    a.fit((X_train_0, X_train_1), y_train, logger=loggers)
+    
+    results = a.score((X_test, X_test), y_test)
+    print(f"F1: {results}")
+ 
     
 def get_token_dataset_properties():
     def get_proportions(data):
@@ -164,7 +196,6 @@ def get_token_dataset_properties():
     )
     # Save the figure as a jpg image
     py.write_image(fig, 'token_data_proportions.jpg', scale=3)
-        
             
 def get_sentence_dataset_properties():
     def get_proportions(data):
@@ -235,7 +266,8 @@ if __name__ == '__main__':
     
     # initialize_cuda_multiprocessing()
     # test_semeval_token_classification()
-    test_semeval_sentence_classification()
+    # test_semeval_sentence_classification()
+    test_intentsemo_sentence_classification()
     
     # def get_proportions(list):
     #     # Calculate the sum of each component across all tuples

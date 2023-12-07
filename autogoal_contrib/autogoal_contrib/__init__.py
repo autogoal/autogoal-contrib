@@ -3,6 +3,7 @@ from autogoal.kb import AlgorithmBase
 from autogoal.utils import find_packages
 from os.path import abspath, dirname, join
 from inspect import getsourcefile
+from autogoal_contrib.wrappers import *
 import enum
 import yaml
 
@@ -53,7 +54,7 @@ def find_classes(include=None, exclude=None, modules=None, input=None, output=No
     if modules is None:
         modules = []
 
-        for module in get_installed_contribs(exclude=["remote", "contrib"]):
+        for module in get_installed_contribs(exclude=["remote"]):
             modules.append(module)
 
     for module in modules:

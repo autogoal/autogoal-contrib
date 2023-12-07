@@ -1,10 +1,10 @@
+from typing import Tuple
 from autogoal.kb import *
 from autogoal.grammar import CategoricalValue, BooleanValue
 from autogoal.utils import nice_repr
 from autogoal.kb import AlgorithmBase
-
+from scipy import sparse
 import numpy as np
-
 
 @nice_repr
 class VectorAggregator(AlgorithmBase):
@@ -20,6 +20,62 @@ class VectorAggregator(AlgorithmBase):
             return input.max(axis=1)
 
         raise ValueError("Invalid mode: %s" % self.mode)
+
+@nice_repr
+class TuppleDeagregator(AlgorithmBase):
+    def __init__(self):
+        pass
+
+    def run(self, input: Seq[Tup[Sentence, VectorContinuous]]) -> Tup[Seq[Sentence], Seq[VectorContinuous]]:
+        seq1 = [t[0] for t in input]
+        seq2 = [t[1] for t in input]
+        return (seq1, seq2)
+
+@nice_repr
+class DenseMatriConcatenator(AlgorithmBase):
+    def __init__(self):
+        pass
+
+    def run(self, input: MatrixContinuousDense, input2: Seq[VectorContinuous]) -> MatrixContinuousDense:
+        # Convert the sequence of vectors to a dense matrix
+        input2_matrix = np.array(input2)
+        
+        # Concatenate the two matrices
+        result = np.concatenate([input, input2_matrix], axis=1)
+        return result
+
+@nice_repr
+class SparseMatrixConcatenator(AlgorithmBase):
+    def __init__(self):
+        pass
+
+    def run(self, input1: MatrixContinuousSparse, input2: Seq[VectorContinuous]) -> AggregatedMatrixContinuousSparse:
+        # Convert the sequence of vectors to a sparse matrix
+        input2_matrix = sparse.csr_matrix(input2)
+        
+        # Concatenate the two matrices
+        result = sparse.hstack([input1, input2_matrix])
+        
+        return result
+
+@nice_repr
+class AggregatedMatrixClassifier(AlgorithmBase):
+    def __init__(
+        self,
+        classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)
+        ):
+        self.classifier = classifier
+
+    def train(self):
+        self.classifier._mode = "train"
+
+    def eval(self):
+        self.classifier._mode = "eval"
+
+    def run(
+        self, X: AggregatedMatrixContinuousSparse, y: Supervised[VectorCategorical]
+    ) -> VectorCategorical:
+        return self.classifier.run(X, y)
 
 
 @nice_repr

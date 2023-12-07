@@ -120,12 +120,14 @@ class StopwordRemover(SklearnLikeTransformer):
 @nice_repr
 class TextLowerer(SklearnLikeTransformer):
     def fit_transform(self, X, y=None):
-        self.fit(X, y=None)
         return self.transform(X)
 
     def transform(self, X, y=None):
         # Considering data as list of raw documents
         return [str.lower(x) for x in X]
+    
+    def run(self, input: Seq[Word]) -> Seq[Word]:
+        return SklearnLikeTransformer.run(self, input)
 
 
 @nice_repr

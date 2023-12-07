@@ -53,6 +53,13 @@ from autogoal.utils import nice_repr
 class SklearnWrapper(AlgorithmBase):
     def __init__(self):
         self._mode = "train"
+        self._fixed = False
+        
+    def reset(self):
+        try:
+            self.__init__(**self.init_params)
+        except Exception as e:
+            pass
         
     @classmethod
     def is_upscalable(cls) -> bool:
@@ -84,13 +91,20 @@ class SklearnWrapper(AlgorithmBase):
 
 class SklearnEstimator(SklearnWrapper):
     def _train(self, X, y=None):
-        if hasattr(self, "partial_fit"):
-            self.partial_fit(X, y, np.unique(y))
-        else:
-            self.fit(X, y)
+        if self._fixed:
+            self.reset()
+            self._fixed = False
+        
+        self.fit(X, y)
+        
+        # if hasattr(self, "partial_fit"):
+        #     self.partial_fit(X, y, np.unique(y))
+        # else:
+        #     self.fit(X, y)
         return y
 
     def _eval(self, X, y=None):
+        self._fixed = True
         return self.predict(X)
 
     @abc.abstractmethod
@@ -229,6 +243,7 @@ def _write_class(cls, fp):
     s = " " * 4
     args_str = f",\n{s * 4}".join(f"{key}: {value}" for key, value in args.items())
     init_str = f",\n{s * 5}".join(f"{key}={key}" for key in args)
+    init_params_dict_str = "{" + ", ".join(f"'{key}':{key}" for key in args) + "}"
 
     output_str = TYPE_ALIASES.get(outputs) or repr(outputs)
 
@@ -262,6 +277,7 @@ def _write_class(cls, fp):
                     self,
                     {init_str}
                 )
+                self.init_params = {init_params_dict_str}
 
             def run(self, {input_str}) -> {output_str}:
                return {base_class}.run(self, {run_input_str})
