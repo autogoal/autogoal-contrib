@@ -1,5 +1,5 @@
 from autogoal_contrib import find_classes
-from autogoal_transformers import BertEmbedding, BertTokenizeEmbedding
+from autogoal_transformers import BertEmbedding
 
 BertEmbedding.download()
 
