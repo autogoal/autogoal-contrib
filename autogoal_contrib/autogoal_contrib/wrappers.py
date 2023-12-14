@@ -22,16 +22,6 @@ class VectorAggregator(AlgorithmBase):
         raise ValueError("Invalid mode: %s" % self.mode)
 
 @nice_repr
-class TuppleDeagregator(AlgorithmBase):
-    def __init__(self):
-        pass
-
-    def run(self, input: Seq[Tup[Sentence, VectorContinuous]]) -> Tup[Seq[Sentence], Seq[VectorContinuous]]:
-        seq1 = [t[0] for t in input]
-        seq2 = [t[1] for t in input]
-        return (seq1, seq2)
-
-@nice_repr
 class DenseMatriConcatenator(AlgorithmBase):
     def __init__(self):
         pass
@@ -73,9 +63,64 @@ class AggregatedMatrixClassifier(AlgorithmBase):
         self.classifier._mode = "eval"
 
     def run(
-        self, X: AggregatedMatrixContinuousSparse, y: Supervised[VectorCategorical]
-    ) -> VectorCategorical:
+        self, X: AggregatedMatrixContinuousSparse, y: Supervised[AggregatedVectorCategorical]
+    ) -> AggregatedVectorCategorical:
         return self.classifier.run(X, y)
+    
+@nice_repr
+class AggregatedMatrixTransform(AlgorithmBase):
+    def __init__(
+        self,
+        transformer: algorithm(MatrixContinuousSparse, MatrixContinuousSparse),
+        ):
+        self.transformer = transformer
+
+    def train(self):
+        self.transformer._mode = "train"
+
+    def eval(self):
+        self.transformer._mode = "eval"
+
+    def run(
+        self, X: AggregatedMatrixContinuousSparse, y: Supervised[AggregatedMatrixContinuousSparse]
+    ) -> AggregatedVectorCategorical:
+        return self.transformer.run(X, y)
+    
+@nice_repr
+class AggregatedMatrixTransformerClassifier(AlgorithmBase):
+    def __init__(
+        self,
+        transformer: algorithm(MatrixContinuousSparse, MatrixContinuousSparse),
+        classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)
+        ):
+        self.classifier = classifier
+        self.transformer = transformer
+        self._mode = "train"
+
+    def train(self):
+        self._mode = "train"
+
+    def eval(self):
+        self._mode = "eval"
+        
+    def _train(self, X, y):
+        transformer_output = self.transformer.fit_transform(X)
+        self.classifier.fit(transformer_output, y)
+        return y
+    
+    def _eval(self, X, y):
+        transformer_output = self.transformer.transform(X)
+        return self.classifier.predict(transformer_output)
+
+    def run(
+        self, X: AggregatedMatrixContinuousSparse, y: Supervised[AggregatedVectorCategorical]
+    ) -> AggregatedVectorCategorical:
+        if self._mode == "train":
+            return self._train(X, y)
+        elif self._mode == "eval":
+            return self._eval(X, y)
+
+        raise ValueError("Invalid mode: %s" % self._mode)
 
 
 @nice_repr
@@ -173,7 +218,7 @@ class SentenceFeatureExtractor(AlgorithmBase):
 
     def run(self, input: Sentence) -> FeatureSet:
         tokens = self.tokenizer.run(input)
-        flags = [self.feature_extractor(w) for w in tokens]
+        flags = [self.feature_extractor.run(w) for w in tokens]
 
         if self.include_text:
             return {
@@ -195,5 +240,5 @@ class DocumentFeatureExtractor(AlgorithmBase):
 
     def run(self, input: Document) -> Seq[FeatureSet]:
         tokens = self.tokenizer.run(input)
-        flags = [self.feature_extractor(w) for w in tokens]
+        flags = [self.feature_extractor.run(w) for w in tokens]
         return

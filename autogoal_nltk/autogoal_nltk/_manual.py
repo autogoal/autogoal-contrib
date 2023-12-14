@@ -297,7 +297,7 @@ class FeatureSeqExtractor(AlgorithmBase):
 
     def __init__(
         self,
-        extract_word: BooleanValue() = True,
+        extract_word = True,
         window_size: DiscreteValue(0, 5) = 0,
     ):
         self.extract_word = extract_word

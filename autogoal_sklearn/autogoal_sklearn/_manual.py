@@ -84,7 +84,7 @@ class _FeatureVectorizer(SklearnTransformer):
         return self.vectorizer.fit_transform(X)
 
     def transform(self, X, y=None):
-        return self.vectorizer.transform(X, y=y)
+        return self.vectorizer.transform(X)
 
 
 @nice_repr

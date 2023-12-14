@@ -1466,7 +1466,7 @@ class KNeighborsClassifier(_KNeighborsClassifier, SklearnEstimator):
         algorithm: CategoricalValue("auto", "ball_tree", "brute", "kd_tree"),
         leaf_size: DiscreteValue(min=1, max=59),
         p: DiscreteValue(min=1, max=3),
-        metric: CategoricalValue("minkowski"),
+        metric: CategoricalValue("cityblock", "cosine", "haversine", "minkowski", "l1", "l2", "manhattan", "nan_euclidean"),
     ):
         SklearnEstimator.__init__(self)
         _KNeighborsClassifier.__init__(
