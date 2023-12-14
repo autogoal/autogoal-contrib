@@ -91,16 +91,15 @@ class SklearnWrapper(AlgorithmBase):
 
 class SklearnEstimator(SklearnWrapper):
     def _train(self, X, y=None):
-        if self._fixed:
-            self.reset()
-            self._fixed = False
+        # if self._fixed:
+        #     self.reset()
+        #     self._fixed = False
         
         self.fit(X, y)
         
         # if hasattr(self, "partial_fit"):
         #     self.partial_fit(X, y, np.unique(y))
         # else:
-        #     self.fit(X, y)
         return y
 
     def _eval(self, X, y=None):
