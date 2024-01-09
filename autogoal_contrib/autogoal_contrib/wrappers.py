@@ -47,9 +47,38 @@ class SparseMatrixConcatenator(AlgorithmBase):
         result = sparse.hstack([input1, input2_matrix])
         
         return result
+    
+@nice_repr
+class DenseMatrixConcatenator(AlgorithmBase):
+    def __init__(self):
+        pass
+
+    def run(self, input1: MatrixContinuousDense, input2: Seq[VectorContinuous]) -> AggregatedMatrixContinuousDense:
+        # Convert the sequence of vectors to a sparse matrix
+        input2_matrix = np.array(input2)
+        
+        # Concatenate the two matrices
+        result = np.hstack([input1, input2_matrix])
+        
+        return result
 
 @nice_repr
-class AggregatedMatrixClassifier(AlgorithmBase):
+class SparseDenseMatrixConcatenator(AlgorithmBase):
+    def __init__(self):
+        pass
+
+    def run(self, input1: MatrixContinuousSparse, input2: MatrixContinuousDense) -> AggregatedMatrixContinuousSparse:
+        # Convert the sequence of vectors to a sparse matrix
+        input2_matrix = input2
+        
+        # Concatenate the two matrices
+        result = sparse.hstack([input1, input2_matrix])
+        
+        return result
+    
+
+@nice_repr
+class AggregatedSparseMatrixClassifier(AlgorithmBase):
     def __init__(
         self,
         classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)
@@ -67,6 +96,39 @@ class AggregatedMatrixClassifier(AlgorithmBase):
     ) -> AggregatedVectorCategorical:
         return self.classifier.run(X, y)
     
+@nice_repr
+class AggregatedDenseMatrixClassifier(AlgorithmBase):
+    def __init__(
+        self,
+        classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)
+        ):
+        self.classifier = classifier
+
+    def train(self):
+        self.classifier._mode = "train"
+
+    def eval(self):
+        self.classifier._mode = "eval"
+
+    def run(
+        self, X: AggregatedMatrixContinuousDense, y: Supervised[AggregatedVectorCategorical]
+    ) -> AggregatedVectorCategorical:
+        return self.classifier.run(X, y)
+    
+class DenseClassifier(AlgorithmBase):
+    def __init__(self, classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)):
+        super().__init__()
+        self.classifier = classifier
+        
+    def train(self):
+        return self.classifier.train()
+    
+    def eval(self):
+        return self.classifier.eval()
+        
+    def run(self, X: MatrixContinuousDense, y: Supervised[VectorCategorical]) -> VectorCategorical:
+        return self.classifier.run(X, y)
+
 @nice_repr
 class AggregatedMatrixTransform(AlgorithmBase):
     def __init__(

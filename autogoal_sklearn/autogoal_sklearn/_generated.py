@@ -331,10 +331,10 @@ from sklearn.decomposition._truncated_svd import TruncatedSVD as _TruncatedSVD
 class TruncatedSVD(_TruncatedSVD, SklearnTransformer):
     def __init__(
         self,
-        n_components: DiscreteValue(min=1, max=3),
-        algorithm: CategoricalValue("arpack", "randomized"),
-        n_iter: DiscreteValue(min=1, max=9),
-        tol: ContinuousValue(min=-0.992, max=0.992),
+        n_components: DiscreteValue(min=1, max=100) = 100,
+        algorithm: CategoricalValue("arpack", "randomized") = "arpack",
+        n_iter: DiscreteValue(min=1, max=9) = 5,
+        tol: ContinuousValue(min=-0.992, max=0.992) = 0.0,
     ):
         SklearnTransformer.__init__(self)
         _TruncatedSVD.__init__(

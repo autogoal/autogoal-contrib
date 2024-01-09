@@ -15,6 +15,20 @@ from autogoal.kb import AlgorithmBase, Supervised
 import numpy as np
 from scipy.sparse import vstack
 
+
+from sklearn.preprocessing import PolynomialFeatures as _PolynomialFeatures
+
+class PolynomialFeatures(_PolynomialFeatures, SklearnTransformer):
+    def __init__(
+        self, 
+        degree: DiscreteValue(1, 4)
+        ):
+        SklearnTransformer.__init__(self)
+        _PolynomialFeatures.__init__(self, degree=degree)
+
+    def run(self, input: MatrixContinuousDense) -> MatrixContinuousDense:
+        return SklearnTransformer.run(self, input)
+
 @nice_repr
 class CountVectorizerStopwordTokenizeStem(_CountVectorizer, SklearnTransformer):
     def __init__(
@@ -86,7 +100,6 @@ class _FeatureVectorizer(SklearnTransformer):
     def transform(self, X, y=None):
         return self.vectorizer.transform(X)
 
-
 @nice_repr
 class FeatureSparseVectorizer(_FeatureVectorizer):
     def __init__(self):
@@ -95,7 +108,6 @@ class FeatureSparseVectorizer(_FeatureVectorizer):
     def run(self, input: Seq[FeatureSet]) -> MatrixContinuousSparse:
         return super().run(input)
 
-
 @nice_repr
 class FeatureDenseVectorizer(_FeatureVectorizer):
     def __init__(self):
@@ -103,7 +115,6 @@ class FeatureDenseVectorizer(_FeatureVectorizer):
 
     def run(self, input: Seq[FeatureSet]) -> MatrixContinuousDense:
         return super().run(input)
-
 
 @nice_repr
 class CRFTagger(CRF, SklearnEstimator):
@@ -117,7 +128,6 @@ class CRFTagger(CRF, SklearnEstimator):
         self, X: Seq[Seq[FeatureSet]], y: Supervised[Seq[Seq[Label]]]
     ) -> Seq[Seq[Label]]:
         return SklearnEstimator.run(self, X, y)
-
 
 @nice_repr
 class ClassifierTagger(SklearnEstimator):
@@ -399,8 +409,9 @@ __all__ = [
     "SparseClassifierTagger",
     "ClassifierTransformerTagger",
     "SparseClassifierTransformerTagger",
+    "PolynomialFeatures",
     # "AggregatedVectorizer",
     "SparseAggregatedVectorizer",
     "AggregatedTransformer",
-    "SparseAggregatedTransformer",
+    "SparseAggregatedTransformer"
 ]
