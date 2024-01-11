@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "autogoal_transformers"
 version = "0.2.0"
-description = "transformers algorithm library for AutoGOAL"
+description = "transformers algorithm library wrapper for AutoGOAL"
 authors = ["Suilan Estevez-Velarde <suilanestevez@gmail.com>", "Alejandro Piad-Morffis <apiad@apiad.net>", "Ernesto L. Estevanell-Valladares <ernestoestevanellv@gmail.com>"]
 license = "MIT"
 readme = "README.md"

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "autogoal_sklearn"
-version = "0.2.0"
+version = "0.8.0"
 description = "scikit-learn algorithm library for AutoGOAL"
 authors = ["Suilan Estevez-Velarde <suilanestevez@gmail.com>", "Alejandro Piad-Morffis <apiad@apiad.net>", "Ernesto L. Estevanell-Valladares <ernestoestevanellv@gmail.com>"]
 license = "MIT"
