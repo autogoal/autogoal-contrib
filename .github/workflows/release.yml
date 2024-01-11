@@ -20,14 +20,15 @@ jobs:
         run: |
           pip install poetry==1.2
           poetry config virtualenvs.create true
-          for dir in autogoal_contrib/*; do
-            if [ -d "$dir" ]; then
-              cd $dir
-              poetry install
-              poetry build
-              cd ../..
-            fi
+          for dir in ./autogoal_*; do
+              if [ -d "$dir" ]; then
+                cd $dir
+                poetry install
+                poetry build
+                cd ../..
+              fi
           done
+
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
