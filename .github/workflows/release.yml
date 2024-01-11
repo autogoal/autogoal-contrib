@@ -42,7 +42,6 @@ jobs:
 
           for dir in ./autogoal_*; do
             if [ -d "$dir" ]; then
-              cd $dir
               pushd $dir
               poetry publish --username __token__ --password ${{ secrets.PYPI_API_TOKEN }}
               popd
