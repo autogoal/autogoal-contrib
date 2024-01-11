@@ -25,7 +25,7 @@ jobs:
                 cd $dir
                 poetry install
                 poetry build
-                cd ../..
+                cd ..
               fi
           done
 
@@ -42,7 +42,7 @@ jobs:
             if [ -d "$dir" ]; then
               cd $dir
               poetry publish --username __token__ --password ${{ secrets.PYPI_API_TOKEN }}
-              cd ../..
+              cd ..
             fi
           done
 
