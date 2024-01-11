@@ -12,7 +12,8 @@ packages = [{include = "autogoal_gensim"}]
 
 [tool.poetry.dependencies]
 python = "3.9.16"
-gensim = "^4.3.1"
+gensim = "^4.2"
+autogoal = "1.0.1a0"
 
 [build-system]
 requires = ["poetry-core"]

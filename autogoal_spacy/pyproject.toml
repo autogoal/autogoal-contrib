@@ -13,6 +13,7 @@ packages = [{include = "autogoal_spacy"}]
 [tool.poetry.dependencies]
 python = "3.9.16"
 spacy = "^3.5.1"
+autogoal = "1.0.1a0"
 
 [build-system]
 requires = ["poetry-core"]

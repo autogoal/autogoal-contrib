@@ -13,6 +13,7 @@ packages = [{include = "autogoal_contrib"}]
 [tool.poetry.dependencies]
 python = "3.9.16"
 numpy = "^1.21.6"
+autogoal = "1.0.1a0"
 
 
 [build-system]
