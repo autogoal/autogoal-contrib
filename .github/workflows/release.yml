@@ -19,15 +19,25 @@ jobs:
       - name: Setup dependencies and build
         run: |
           pip install poetry==1.2
-          poetry config virtualenvs.create true
+          errors=""
+
           for dir in ./autogoal_*; do
               if [ -d "$dir" ]; then
-                cd $dir
-                poetry install
-                poetry build
-                cd ..
+                  pushd $dir
+                  error=$(poetry install 2>&1) || true
+                  error=$(poetry build 2>&1) || true
+
+                  if [ ! -z "$error" ]; then
+                    errors+="Error in $dir: $error\n"
+                  fi
+
+                  popd
               fi
           done
+
+          echo -e "$errors"
+
+
 
 
       - name: Set up QEMU
@@ -38,13 +48,21 @@ jobs:
 
       - name: Publish
         run: |
+          errors=""
+
           for dir in ./autogoal_*; do
             if [ -d "$dir" ]; then
               cd $dir
-              poetry publish --username __token__ --password ${{ secrets.PYPI_API_TOKEN }}
-              cd ..
+              pushd $dir
+              error=$(poetry publish --username __token__ --password ${{ secrets.PYPI_API_TOKEN }} 2>&1) || true
+              if [ ! -z "$error" ]; then
+                  errors+="Error in $dir: $error\n"
+              fi
+              popd
             fi
           done
+
+          echo -e "$errors"
 
       # - name: Deploy docs
       #   uses: peaceiris/actions-gh-pages@v3
