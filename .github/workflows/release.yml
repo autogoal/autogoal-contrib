@@ -19,26 +19,16 @@ jobs:
       - name: Setup dependencies and build
         run: |
           pip install poetry==1.2
-          errors=""
+          set +e  # Continue on error
 
           for dir in ./autogoal_*; do
               if [ -d "$dir" ]; then
                   pushd $dir
-                  error=$(poetry install 2>&1) || true
-                  error=$(poetry build 2>&1) || true
-
-                  if [ ! -z "$error" ]; then
-                    errors+="Error in $dir: $error\n"
-                  fi
-
+                  poetry install
+                  poetry build
                   popd
               fi
           done
-
-          echo -e "$errors"
-
-
-
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -48,21 +38,16 @@ jobs:
 
       - name: Publish
         run: |
-          errors=""
+          set +e  # Continue on error
 
           for dir in ./autogoal_*; do
             if [ -d "$dir" ]; then
               cd $dir
               pushd $dir
-              error=$(poetry publish --username __token__ --password ${{ secrets.PYPI_API_TOKEN }} 2>&1) || true
-              if [ ! -z "$error" ]; then
-                  errors+="Error in $dir: $error\n"
-              fi
+              poetry publish --username __token__ --password ${{ secrets.PYPI_API_TOKEN }}
               popd
             fi
           done
-
-          echo -e "$errors"
 
       # - name: Deploy docs
       #   uses: peaceiris/actions-gh-pages@v3
