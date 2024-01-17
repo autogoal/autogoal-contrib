@@ -11,7 +11,7 @@ repository = "https://github.com/autogoal/autogoal-contrib"
 packages = [{include = "autogoal_regex"}]
 
 [tool.poetry.dependencies]
-python = "3.9.16"
+python = ">=3.9.13,<3.10"
 autogoal = "1.0.1a0"
 
 [build-system]

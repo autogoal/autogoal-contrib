@@ -11,7 +11,7 @@ repository = "https://github.com/autogoal/autogoal-contrib"
 packages = [{include = "autogoal_sklearn"}]
 
 [tool.poetry.dependencies]
-python = "3.9.16"
+python = ">=3.9.13,<3.10"
 scikit-learn = "1.0"
 sklearn-crfsuite = "^0.3.6"
 numpy = "^1.21.6"
