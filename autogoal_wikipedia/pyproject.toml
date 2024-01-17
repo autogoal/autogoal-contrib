@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "autogoal_wikipedia"
-version = "0.2.0"
+version = "0.2.0a1"
 description = "wikipedia algorithm library wrapper for AutoGOAL"
 authors = ["Suilan Estevez-Velarde <suilanestevez@gmail.com>", "Alejandro Piad-Morffis <apiad@apiad.net>", "Ernesto L. Estevanell-Valladares <ernestoestevanellv@gmail.com>"]
 license = "MIT"
@@ -13,7 +13,8 @@ packages = [{include = "autogoal_wikipedia"}]
 [tool.poetry.dependencies]
 python = ">=3.9.13,<3.10"
 wikipedia = "^1.4.0"
-autogoal = "1.0.1a0"
+autogoal = "1.0.1a1"
+autogoal-contrib = "0.8.0a1"
 
 [build-system]
 requires = ["poetry-core"]
