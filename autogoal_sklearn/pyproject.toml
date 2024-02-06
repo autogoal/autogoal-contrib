@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "autogoal_sklearn"
-version = "0.8.0a1"
+version = "0.8.0"
 description = "scikit-learn algorithm library for AutoGOAL"
 authors = ["Suilan Estevez-Velarde <suilanestevez@gmail.com>", "Alejandro Piad-Morffis <apiad@apiad.net>", "Ernesto L. Estevanell-Valladares <ernestoestevanellv@gmail.com>"]
 license = "MIT"
@@ -16,7 +16,7 @@ scikit-learn = "1.0"
 sklearn-crfsuite = "^0.3.6"
 numpy = "^1.21.6"
 autogoal = "1.0.1a1"
-autogoal-contrib = "0.8.0a1"
+autogoal-contrib = "0.8.0"
 
 [build-system]
 requires = ["poetry-core"]

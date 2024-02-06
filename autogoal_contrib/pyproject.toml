@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "autogoal_contrib"
-version = "0.8.0a1"
+version = "0.8.0"
 description = "Common library for AutoGOAL contrib packages"
 authors = ["Suilan Estevez-Velarde <suilanestevez@gmail.com>", "Alejandro Piad-Morffis <apiad@apiad.net>", "Ernesto L. Estevanell-Valladares <ernestoestevanellv@gmail.com>"]
 license = "MIT"
