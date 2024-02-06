@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "autogoal_nltk"
-version = "0.8.0"
+version = "0.8.1"
 description = "Scikit-learn algorithm library wrapper for AutoGOAL"
 authors = ["Suilan Estevez-Velarde <suilanestevez@gmail.com>", "Alejandro Piad-Morffis <apiad@apiad.net>", "Ernesto L. Estevanell-Valladares <ernestoestevanellv@gmail.com>"]
 license = "MIT"
@@ -16,7 +16,7 @@ nltk = "^3.8.1"
 gensim = "4.1"
 numpy = "^1.21.6"
 autogoal = "1.0.1a1"
-autogoal-contrib = "0.8.0"
+autogoal-contrib = "0.8.1"
 
 [build-system]
 requires = ["poetry-core"]
