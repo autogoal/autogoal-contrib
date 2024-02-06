@@ -16,7 +16,7 @@ nltk = "^3.8.1"
 gensim = "4.1"
 numpy = "^1.21.6"
 autogoal = "1.0.1a1"
-autogoal-contrib = "0.8.1"
+autogoal-contrib = "^0.8.2"
 
 [build-system]
 requires = ["poetry-core"]

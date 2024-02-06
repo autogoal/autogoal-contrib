@@ -14,7 +14,7 @@ packages = [{include = "autogoal_gensim"}]
 python = ">=3.9.13,<3.10"
 gensim = "^4.2"
 autogoal = "1.0.1a1"
-autogoal-contrib = "0.8.1"
+autogoal-contrib = "^0.8.2"
 
 [build-system]
 requires = ["poetry-core"]

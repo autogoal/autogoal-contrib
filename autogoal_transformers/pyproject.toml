@@ -17,7 +17,7 @@ transformers = "^4.27.3"
 evaluate = "^0.4.1"
 datasets = "^2.14.6"
 autogoal = "1.0.1a1"
-autogoal-contrib = "0.8.1"
+autogoal-contrib = "^0.8.2"
 
 [build-system]
 requires = ["poetry-core"]
