@@ -12,7 +12,7 @@ packages = [{include = "autogoal_regex"}]
 
 [tool.poetry.dependencies]
 python = ">=3.9.13,<3.11"
-autogoal = "1.0.2"
+autogoal = "^1.0.2"
 autogoal-contrib = "^0.8.2"
 
 [build-system]

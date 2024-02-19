@@ -16,7 +16,7 @@ torch = "^2.0.0"
 transformers = "^4.27.3"
 evaluate = "^0.4.1"
 datasets = "^2.14.6"
-autogoal = "1.0.2"
+autogoal = "^1.0.2"
 autogoal-contrib = "^0.8.2"
 
 [build-system]

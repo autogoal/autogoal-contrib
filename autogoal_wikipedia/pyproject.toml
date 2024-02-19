@@ -13,7 +13,7 @@ packages = [{include = "autogoal_wikipedia"}]
 [tool.poetry.dependencies]
 python = ">=3.9.13,<3.11"
 wikipedia = "^1.4.0"
-autogoal = "1.0.2"
+autogoal = "^1.0.2"
 autogoal-contrib = "^0.8.2"
 
 [build-system]

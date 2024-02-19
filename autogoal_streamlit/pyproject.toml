@@ -14,7 +14,7 @@ packages = [{include = "autogoal_streamlit"}]
 python = ">=3.9.13,<3.11"
 streamlit = "^1.20.0"
 nx-altair = "^0.1.6"
-autogoal = "1.0.2"
+autogoal = "^1.0.2"
 autogoal-contrib = "^0.8.2"
 
 [build-system]
