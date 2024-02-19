@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "autogoal_wikipedia"
-version = "0.8.3"
+version = "0.8.4"
 description = "wikipedia algorithm library wrapper for AutoGOAL"
 authors = ["Suilan Estevez-Velarde <suilanestevez@gmail.com>", "Alejandro Piad-Morffis <apiad@apiad.net>", "Ernesto L. Estevanell-Valladares <ernestoestevanellv@gmail.com>"]
 license = "MIT"
