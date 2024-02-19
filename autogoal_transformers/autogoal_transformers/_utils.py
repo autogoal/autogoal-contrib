@@ -3,11 +3,20 @@ from transformers import AutoModel, AutoTokenizer, AutoConfig
 from huggingface_hub import HfApi, ModelFilter 
 import re
 from enum import Enum
+from tqdm import tqdm
 
 import requests
 
+class TASK_ALIASES(Enum):
+    TextClassification = "text-classification"
+    TokenClassification = "token-classification"
+    WordEmbeddings = "word-embeddings"
+    SeqEmbeddings = "sequence-embeddings"
+    TextGeneration = "text-generation"
+
 class DOWNLOAD_MODE(Enum):
     HUB = "hub"
+    BASE = "base"
     SCRAP = "scrap"
     
 class ModelDescriptor():
@@ -17,6 +26,75 @@ class ModelDescriptor():
         self.likes = likes
         self.pipeline_tag = pipeline_tag
 
+TASK_TO_BASE_MODELS = {
+    TASK_ALIASES.WordEmbeddings: [
+        # BERT
+        "bert-base-uncased",
+        "bert-large-uncased",
+        "bert-base-cased",
+        "bert-large-cased",
+        "bert-base-multilingual-uncased",
+        "bert-base-multilingual-cased",
+        
+        # DistilBERT
+        "distilbert-base-uncased",
+        "distilbert-base-cased",
+        "distilbert-base-multilingual-cased",
+        
+        # RoBERTa
+        "roberta-base",
+        "roberta-large",
+        
+        # Deberta
+        "microsoft/deberta-v3-base",
+        "microsoft/deberta-base",
+        "microsoft/mdeberta-v3-base",
+    ],
+    TASK_ALIASES.SeqEmbeddings: [
+        # BERT
+        "bert-base-uncased",
+        "bert-large-uncased",
+        "bert-base-cased",
+        "bert-large-cased",
+        "bert-base-multilingual-uncased",
+        "bert-base-multilingual-cased",
+        
+        # DistilBERT
+        "distilbert-base-uncased",
+        "distilbert-base-cased",
+        "distilbert-base-multilingual-cased",
+        
+        # RoBERTa
+        "roberta-base",
+        "roberta-large",
+        
+        # Deberta
+        "microsoft/deberta-v3-base",
+        "microsoft/deberta-base",
+        "microsoft/mdeberta-v3-base",
+    ],
+    TASK_ALIASES.TextGeneration: [
+        # t5
+        "t5-small",
+        "t5-base",
+        "t5-large",
+        "t5-3b",
+        "t5-11b",
+        
+        # GPT-2
+        "gpt2",
+        "gpt2-medium",
+        "gpt2-large",
+        "gpt2-xl",
+    ]
+}
+
+def get_base_hf_models(target_task):
+    if target_task in TASK_TO_BASE_MODELS:
+        return TASK_TO_BASE_MODELS[target_task]
+    else:
+        return []
+    
 def get_hf_models(target_task):
     hf_api = HfApi()
     return hf_api.list_models(filter=ModelFilter(task = target_task, library="pytorch"))
@@ -55,87 +133,76 @@ def get_hf_models_sorted_by_likes(target_task, min_likes, min_downloads):
             count += 1
         page += 1
 
-
-
 def get_model_config(modelId):
     config = AutoConfig.from_pretrained(modelId)
     return config
 
-
 def get_models_info(target_task, max_amount, min_likes=None, min_downloads=None, download_mode=DOWNLOAD_MODE.HUB):
     models = get_hf_models(target_task.value) \
         if download_mode == DOWNLOAD_MODE.HUB \
+        else get_base_hf_models(target_task) if DOWNLOAD_MODE.BASE \
         else get_hf_models_sorted_by_likes(target_task.value, min_likes, min_downloads)
     
     # regex for detecting partially trained models
     pattern = r"train-\d+"
-
-    try:
-        import progressbar
-
-        # setup progress bar
-        bar = progressbar.ProgressBar(
-            maxval=1000,
-            widgets=[progressbar.Bar("=", "[", "]"), " ", progressbar.Percentage()],
-        )
-
-        # Start the progress bar
-        bar.start()
-    except:
-        pass
+    
+    print("here")
 
     # Get model metadata
     model_info = []
     current = 0
-    for model in models:
+    for model in tqdm(models):
         if current >= max_amount:
             break
-
-        if re.search(pattern, model.modelId) is not None:
+        
+        modelId = model if download_mode == DOWNLOAD_MODE.BASE else model.modelId
+        if re.search(pattern, modelId) is not None:
             continue
 
         try:
             if download_mode == DOWNLOAD_MODE.SCRAP:
                 likes, downloads = model.likes, model.downloads
             else:
-                likes, downloads = get_model_likes_downloads(model.modelId)
+                if download_mode == DOWNLOAD_MODE.HUB:
+                    likes, downloads = get_model_likes_downloads(model.modelId)
             
-            if (min_likes is not None and likes < min_likes):
+            if (download_mode == DOWNLOAD_MODE.SCRAP and min_likes is not None and likes < min_likes):
                 continue 
             
-            if (min_downloads is not None and downloads < min_downloads):
+            if (download_mode == DOWNLOAD_MODE.SCRAP and min_downloads is not None and downloads < min_downloads):
                 continue 
             
-            config = get_model_config(model.modelId)
+            config = get_model_config(modelId)
 
             info = {
-                "name": model.modelId,
+                "name": modelId,
                 "metadata": {
-                    "task": model.pipeline_tag,
-                    "id2label": config.id2label,
-                    "model_type": config.model_type,
-                    "likes": likes,
-                    "downloads": downloads
+                    "task": target_task.value,
+                    "id2label": config.id2label if hasattr(config, "id2label") else None,
+                    "model_type": config.model_type if hasattr(config, "model_type") else None,
+                    "architectures": config.architectures if hasattr(config, "architectures") else None,
+                    "vocab_size": config.vocab_size if hasattr(config, "vocab_size") else None,
+                    "type_vocab_size": config.type_vocab_size if hasattr(config, "type_vocab_size") else None,
+                    "is_decoder": config.is_decoder if hasattr(config, "is_decoder") else None,
+                    "is_encoder_decoder": config.is_encoder_decoder if hasattr(config, "is_encoder_decoder") else None,
+                    "num_layers": config.num_hidden_layers if hasattr(config, "num_hidden_layers") else None,
+                    "hidden_size": config.hidden_size if hasattr(config, "hidden_size") else None,
+                    "num_attention_heads": config.num_attention_heads if hasattr(config, "num_attention_heads") else None,
                 },
             }
+            
+            if download_mode == DOWNLOAD_MODE.SCRAP:
+                info["metadata"]["likes"] = likes
+                info["metadata"]["downloads"] = downloads
+                
             model_info.append(info)
             current += 1
-            
-            try:
-                bar.update(current)
-            except:
-                pass
         except Exception as e:
             pass
-
-    # Finish the progress bar
-    bar.finish()
     return model_info
-
 
 def download_models_info(
     target_task, 
-    output_path="text_classification_models_info.json", 
     max_amount=1000, 
     min_likes=100, 
     min_downloads=1000,
@@ -143,12 +210,11 @@ def download_models_info(
 ):
     # Get model info and dump to JSON file
     model_info = get_models_info(target_task, max_amount, min_likes, min_downloads, download_mode=download_mode)
-    with open(output_path, "w") as f:
+    with open(f"{target_task.value}.json", "w") as f:
         json.dump(model_info, f)
+        print(f"Model information has been saved to {target_task.value}.json")
 
-    print(f"Model information has been saved to {output_path}.")
     return model_info
-
 
 def get_model_likes_downloads(model_name):
     url = f"https://huggingface.co/{model_name}"
@@ -164,7 +230,6 @@ def get_model_likes_downloads(model_name):
     downloads = int(downloads_element.text.replace(',', '')) if downloads_element else 0
 
     return likes, downloads
-
 
 def to_camel_case(name):
     # Remove numbers at the beginning, replace '/' with '_', and split on '-'

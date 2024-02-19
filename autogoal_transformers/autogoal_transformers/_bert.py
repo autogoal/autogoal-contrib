@@ -6,7 +6,8 @@ from transformers import BertModel, BertTokenizer
 from autogoal.grammar import CategoricalValue
 from autogoal.kb import (AlgorithmBase, MatrixContinuousDense, Sentence, Seq,
                          Tensor3, Word)
-from autogoal.utils import is_cuda_multiprocessing_enabled, nice_repr
+from autogoal.utils import nice_repr
+from autogoal.utils._process import is_cuda_multiprocessing_enabled
 from tqdm import tqdm
 
 @nice_repr
@@ -177,8 +178,6 @@ class BertSequenceEmbedding(AlgorithmBase):
     @classmethod
     def is_upscalable(cls) -> bool:
         return False
-
-    use_cache = False
 
     def __init__(
         self, 

@@ -12,7 +12,7 @@ from autogoal.grammar import (
 )
 from autogoal_transformers._builder import (
     PretrainedZeroShotClassifier,
-    PetrainedTextClassifier,
+    PretrainedTextClassifier,
     PretrainedTokenClassifier,
 )
 from autogoal.kb import *
