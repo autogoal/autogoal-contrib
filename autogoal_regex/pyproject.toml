@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "autogoal_regex"
-version = "0.8.0"
+version = "0.8.3"
 description = "scikit-learn algorithm library for AutoGOAL"
 authors = ["Suilan Estevez-Velarde <suilanestevez@gmail.com>", "Alejandro Piad-Morffis <apiad@apiad.net>", "Ernesto L. Estevanell-Valladares <ernestoestevanellv@gmail.com>"]
 license = "MIT"
@@ -11,9 +11,9 @@ repository = "https://github.com/autogoal/autogoal-contrib"
 packages = [{include = "autogoal_regex"}]
 
 [tool.poetry.dependencies]
-python = ">=3.9.13,<3.10"
-autogoal = "1.0.1a1"
-autogoal-contrib = "0.8.0"
+python = ">=3.9.13,<3.11"
+autogoal = "1.0.2"
+autogoal-contrib = "^0.8.2"
 
 [build-system]
 requires = ["poetry-core"]
