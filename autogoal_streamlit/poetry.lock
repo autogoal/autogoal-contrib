@@ -513,7 +513,7 @@ numpy = ">=1.16.6"
 
 [[package]]
 name = "pydeck"
-version = "0.8.2"
+version = "0.8.3"
 description = "Widget for deck.gl maps"
 category = "main"
 optional = false
