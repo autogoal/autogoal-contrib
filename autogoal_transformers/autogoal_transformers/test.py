@@ -4,11 +4,10 @@ from autogoal.datasets.semeval_2023_task_8_1 import F1_beta_plain, precision_pla
 from autogoal_sklearn._generated import MultinomialNB, MinMaxScaler, Perceptron, CountVectorizer, TfidfTransformer, KNNImputer
 from autogoal_sklearn._manual import ClassifierTransformerTagger, ClassifierTagger, AggregatedTransformer, CountVectorizerFixedVocabulary
 from autogoal_transformers._bert import BertEmbedding, BertSequenceEmbedding
-from autogoal_transformers._generated import TEC_Moritzlaurer_DebertaV3BaseMnliFeverAnli
+# from autogoal_transformers._generated import TEC_Moritzlaurer_DebertaV3BaseMnliFeverAnli
 from autogoal_transformers._tc_generated import TOC_Dslim_BertBaseNer
 from autogoal_transformers._manual import SeqPretrainedTokenClassifier
-from autogoal_keras import KerasSequenceClassifier
-from autogoal_contrib import TuppleDeagregator, SparseMatrixConcatenator, DenseMatriConcatenator, AggregatedMatrixClassifier
+# from autogoal_contrib import TuppleDeagregator, SparseMatrixConcatenator, DenseMatriConcatenator, AggregatedMatrixClassifier
 from autogoal.kb import Seq, Tup, Word, VectorCategorical, VectorContinuous,MatrixContinuousSparse, MatrixCategorical,AggregatedMatrixContinuousSparse, Supervised, Tensor, Categorical, Dense, Label, Pipeline, Sentence
 from autogoal.datasets.meddocan import F1_beta, precision, recall
 from autogoal.ml import AutoML, peak_ram_usage, evaluation_time

@@ -49,6 +49,21 @@ TASK_TO_BASE_MODELS = {
         "microsoft/deberta-v3-base",
         "microsoft/deberta-base",
         "microsoft/mdeberta-v3-base",
+        
+        # ALBERT
+        "albert-base-v1",
+        "albert-large-v1",
+        "albert-xlarge-v1",
+        "albert-xxlarge-v1",
+        
+        # ELECTRA
+        "google/electra-small-discriminator",
+        "google/electra-base-discriminator",
+        "google/electra-large-discriminator",
+        
+        # XLM-RoBERTa
+        "xlm-roberta-base",
+        "xlm-roberta-large",
     ],
     TASK_ALIASES.SeqEmbeddings: [
         # BERT
@@ -72,14 +87,41 @@ TASK_TO_BASE_MODELS = {
         "microsoft/deberta-v3-base",
         "microsoft/deberta-base",
         "microsoft/mdeberta-v3-base",
+        
+        # ALBERT
+        "albert-base-v1",
+        "albert-large-v1",
+        "albert-xlarge-v1",
+        "albert-xxlarge-v1",
+        
+        # ELECTRA
+        "google/electra-small-discriminator",
+        "google/electra-base-discriminator",
+        "google/electra-large-discriminator",
+        
+        # XLM-RoBERTa
+        "xlm-roberta-base",
+        "xlm-roberta-large",
     ],
     TASK_ALIASES.TextGeneration: [
         # t5
-        "t5-small",
-        "t5-base",
-        "t5-large",
-        "t5-3b",
-        "t5-11b",
+        "google-t5/t5-small",
+        "google-t5/t5-base",
+        "google-t5/t5-large",
+        "google-t5/t5-3b",
+        "google-t5/t5-11b",
+        
+        # flan-t5
+        "google/flan-t5-base",
+        "google/flan-t5-large",
+        "google/flan-t5-xxl",
+        "google/flan-t5-xl",
+        
+        # gemma
+        "google/gemma-7b-it",
+        "google/gemma-2b-it",
+        "google/gemma-7b",
+        "google/gemma-2b",
         
         # GPT-2
         "gpt2",

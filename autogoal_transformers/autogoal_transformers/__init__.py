@@ -9,6 +9,7 @@ DATA_PATH = dirname(abspath(getsourcefile(lambda: 0)))
 
 # Setting up download location
 os.environ["TRANSFORMERS_CACHE"] = str(DATA_PATH)
+os.environ["HF_HOME"] = str(DATA_PATH)
 
 
 try:

@@ -1,42 +1,64 @@
-import abc
 import datetime
-import json
-import os
 import textwrap
-from enum import Enum
 from pathlib import Path
+from autogoal.utils import nice_repr
 
 import black
 import enlighten
 import numpy as np
 import torch
-from autogoal_transformers._utils import download_models_info, to_camel_case, DOWNLOAD_MODE
-from transformers import (AutoModel, AutoModelForSequenceClassification,
-                          AutoModelForTokenClassification, AutoTokenizer,
-                          pipeline)
+from autogoal_transformers._utils import (
+    download_models_info,
+    to_camel_case,
+    DOWNLOAD_MODE,
+)
+from transformers import (
+    AutoModel,
+    AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
+    AutoModelForCausalLM,
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
+    pipeline,
+)
 
-from autogoal.kb import (AlgorithmBase, Label, Sentence, Seq, Supervised,
-                         VectorCategorical, Word, MatrixContinuousDense)
+from autogoal.kb import (
+    AlgorithmBase,
+    Label,
+    Sentence,
+    Seq,
+    Supervised,
+    VectorCategorical,
+    Word,
+    MatrixContinuousDense,
+    GeneratedText,
+    Prompt,
+)
 
-from autogoal.grammar import DiscreteValue, CategoricalValue
+from autogoal.grammar import DiscreteValue, CategoricalValue, ContinuousValue
 from autogoal_transformers._utils import TASK_ALIASES
 from autogoal.utils._process import is_cuda_multiprocessing_enabled
 import time
 import warnings
 from tqdm import tqdm
 
+
+@nice_repr
 class TransformersWrapper(AlgorithmBase):
     """
     Base wrapper for transformers algorithms from huggingface
     """
+
     @classmethod
     def is_upscalable(cls) -> bool:
         return False
-    
+
     def __init__(self):
         self._mode = "train"
         self.device = (
-            torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
+            torch.device("cuda")
+            if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
+            else torch.device("cpu")
         )
 
     def train(self):
@@ -58,7 +80,7 @@ class TransformersWrapper(AlgorithmBase):
             return
 
         print(*args, **kwargs)
-        
+
     @classmethod
     def check_files(cls):
         """
@@ -70,9 +92,7 @@ class TransformersWrapper(AlgorithmBase):
             True if the files are available locally, False otherwise.
         """
         try:
-            AutoModel.from_pretrained(
-                cls.name, local_files_only=True
-            )
+            AutoModel.from_pretrained(cls.name, local_files_only=True)
             AutoTokenizer.from_pretrained(cls.name, local_files_only=True)
             return True
         except:
@@ -85,7 +105,7 @@ class TransformersWrapper(AlgorithmBase):
         """
         AutoModel.from_pretrained(cls.name)
         AutoTokenizer.from_pretrained(cls.name)
-    
+
     def init_model(self):
         if self.model is None:
             if not self.__class__.check_files():
@@ -103,26 +123,28 @@ class TransformersWrapper(AlgorithmBase):
                 )
             except Exception as e:
                 raise e
-    
+
 
 class PretrainedWordEmbedding(TransformersWrapper):
     def __init__(
-        self, 
-        merge_mode: CategoricalValue("avg", "first"), # type: ignore
-        batch_size = 4112,
-        *, 
-        verbose=True
+        self,
+        pooling_model: CategoricalValue("mean", "max", "cls"),  # type: ignore
+        batch_size=DiscreteValue(32, 1024),  # type: ignore
+        *,
+        verbose=True,
     ):
         self.device = (
-            torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
+            torch.device("cuda")
+            if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
+            else torch.device("cpu")
         )
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
-        self.merge_mode = merge_mode
+        self.merge_mode = pooling_model
         self.model = None
         self.tokenizer = None
         self.batch_size = batch_size
-        
+
     def _merge(self, vectors):
         if not vectors.size(0):
             return np.zeros(vectors.size(1), dtype="float32")
@@ -132,14 +154,17 @@ class PretrainedWordEmbedding(TransformersWrapper):
             return vectors[0, :].numpy()
         else:
             raise ValueError("Unknown merge mode")
-    
+
     def run(self, input: Seq[Word]) -> MatrixContinuousDense:
         self.init_model()
 
         self.print("Tokenizing...", end="", flush=True)
         tokens = [self.tokenizer.tokenize(x) for x in input]
         sequence = self.tokenizer.encode_plus(
-            [t for tokens in tokens for t in tokens], return_tensors="pt", padding=True, truncation=True,
+            [t for tokens in tokens for t in tokens],
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
         ).to(self.device)
         self.print("done")
 
@@ -148,149 +173,238 @@ class PretrainedWordEmbedding(TransformersWrapper):
             output = self.model(**sequence).last_hidden_state
             output = output.squeeze(0)
             self.print("done")
-            
+
         # delete the reference so we can clean the GRAM
         del sequence
-        
+
         count = 0
         matrix = []
         for i, token in enumerate(input):
             contiguous = len(tokens[i])
             vectors = output[count : count + contiguous, :]
-            vector = self._merge(vectors.to('cpu'))
+            vector = self._merge(vectors.to("cpu"))
             matrix.append(vector)
             count += contiguous
-            
+
             # delete the reference so we can clean the GRAM
             del vectors
+            torch.cuda.empty_cache()
 
         matrix = np.vstack(matrix)
-        torch.cuda.empty_cache()
-
         return matrix
+
 
 class PretrainedSequenceEmbedding(TransformersWrapper):
     def __init__(
-        self, 
-        merge_mode: CategoricalValue("avg", "first"), # type: ignore
-        batch_size = 4112,
-        *, 
-        verbose=True
+        self,
+        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        pooling_strategy: CategoricalValue("mean", "max", "cls"),  # type: ignore
+        *,
+        verbose=False,
     ):
         self.device = (
-            torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
+            torch.device("cuda:0")
+            if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
+            else torch.device("cpu")
         )
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
-        self.merge_mode = merge_mode
         self.model = None
         self.tokenizer = None
         self.batch_size = batch_size
-        
-    def _merge(self, vectors):
-        if not vectors.size(0):
-            return np.zeros(vectors.size(1), dtype="float32")
-        if self.merge_mode == "avg":
-            return vectors.mean(dim=0).numpy()
-        elif self.merge_mode == "first":
-            return vectors[0, :].numpy()
-        else:
-            raise ValueError("Unknown merge mode")
-    
+        self.pooling_strategy = pooling_strategy
+
     def run(self, input: Seq[Sentence]) -> MatrixContinuousDense:
         self.init_model()
-                
-        self.print("Tokenizing...", end="", flush=True)
-        sequences = [self.tokenizer.encode_plus(
-            sentence, return_tensors="pt", padding=True, truncation=True,
-        ).to(self.device) for sentence in input]
-        self.print("done")
-
         embeddings = []
         for i in tqdm(range(0, len(input), self.batch_size), desc="Processing batches"):
-            batch = sequences[i:i+self.batch_size]
+            batch_sentences = input[i : i + self.batch_size]
+            self.print("Tokenizing...", end="", flush=True)
+            encoded_input = self.tokenizer(
+                batch_sentences, padding=True, truncation=True, return_tensors="pt"
+            ).to(self.device)
+            self.print("done")
 
             with torch.no_grad():
-                for bert_sequence in batch:
-                    output = self.model(**bert_sequence).last_hidden_state
-                    output = output.squeeze(0)
+                self.print("Embedding...", end="", flush=True)
+                output = self.model(**encoded_input).last_hidden_state
+                self.print("done")
 
-                    # Average the embeddings to get a sentence-level representation
-                    sentence_embedding = output.mean(dim=0).to('cpu')
-                    embeddings.append(sentence_embedding)
+                # Average the embeddings to get a sentence-level representation
+                # Use the pooling strategy
+                if self.pooling_strategy == "mean":
+                    batch_seq_embeddings = output.mean(dim=1).to("cpu")
+                elif self.pooling_strategy == "max":
+                    batch_seq_embeddings = output.max(dim=1).values.to("cpu")
+                elif self.pooling_strategy == "cls":
+                    batch_seq_embeddings = output[:, 0, :].to("cpu")
+                else:
+                    raise ValueError(f"Unknown pooling strategy: {self.pooling_strategy}")
+                
+                embeddings.extend(batch_seq_embeddings)
 
-                    # delete the reference so we can clean the GRAM
-                    del bert_sequence, output
-
+            # delete the reference so we can clean the GRAM
+            del encoded_input, output
             torch.cuda.empty_cache()
+        
+        matrix = np.vstack(embeddings)
+        return matrix
 
-        # Stack the embeddings into a matrix
-        embeddings_matrix = torch.stack(embeddings).numpy()
-        return embeddings_matrix
 
 class PretrainedTextGeneration(TransformersWrapper):
     def __init__(
-        self, 
-        merge_mode: CategoricalValue("avg", "first"), # type: ignore
-        batch_size = 4112,
-        *, 
-        verbose=True
+        self,
+        batch_size=DiscreteValue(32, 1024),  # type: ignore
+        max_gen_seq_length=DiscreteValue(16, 512),  # type: ignore
+        temperature=ContinuousValue(0.1, 1.9),  # type: ignore
+        *,
+        verbose=False,
     ):
         self.device = (
-            torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
+            torch.device("cuda:0")
+            if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
+            else torch.device("cpu")
         )
         self.verbose = verbose
         self.print("Using device: %s" % self.device)
-        self.merge_mode = merge_mode
         self.model = None
         self.tokenizer = None
         self.batch_size = batch_size
-        
-    def _merge(self, vectors):
-        if not vectors.size(0):
-            return np.zeros(vectors.size(1), dtype="float32")
-        if self.merge_mode == "avg":
-            return vectors.mean(dim=0).numpy()
-        elif self.merge_mode == "first":
-            return vectors[0, :].numpy()
+        self.max_gen_seq_length = max_gen_seq_length
+        self.temperature = temperature
+
+    @classmethod
+    def check_files(cls):
+        """
+        Checks if the pretrained model and tokenizer files are available locally.
+
+        Returns
+        -------
+        bool
+            True if the files are available locally, False otherwise.
+        """
+        try:
+            if cls.is_encoder_decoder:
+                AutoModelForSeq2SeqLM.from_pretrained(cls.name, local_files_only=True)
+            else:
+                AutoModelForCausalLM.from_pretrained(cls.name, local_files_only=True)
+            AutoTokenizer.from_pretrained(cls.name, local_files_only=True)
+            return True
+        except:
+            return False
+
+    @classmethod
+    def download(cls):
+        """
+        Downloads the pretrained model and tokenizer.
+        """
+        if cls.is_encoder_decoder:
+            AutoModelForSeq2SeqLM.from_pretrained(cls.name)
         else:
-            raise ValueError("Unknown merge mode")
-    
-    def run(self, input: Seq[Word]) -> MatrixContinuousDense:
-        self.init_model()
+            AutoModelForCausalLM.from_pretrained(cls.name)
 
-        self.print("Tokenizing...", end="", flush=True)
-        tokens = [self.tokenizer.tokenize(x) for x in input]
-        sequence = self.tokenizer.encode_plus(
-            [t for tokens in tokens for t in tokens], return_tensors="pt", padding=True, truncation=True,
-        ).to(self.device)
-        self.print("done")
+        AutoTokenizer.from_pretrained(cls.name)
 
-        with torch.no_grad():
-            self.print("Embedding...", end="", flush=True)
-            output = self.model(**sequence).last_hidden_state
-            output = output.squeeze(0)
-            self.print("done")
-            
-        # delete the reference so we can clean the GRAM
-        del sequence
+    def init_model(self):
+        if self.model is None:
+            if not self.__class__.check_files():
+                self.__class__.download()
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.name, local_files_only=True
+                )
+                
+                if self.is_encoder_decoder:
+                    self.model = AutoModelForSeq2SeqLM.from_pretrained(
+                        self.name, local_files_only=True
+                    ).to(self.device)
+                else:
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.name, local_files_only=True
+                    ).to(self.device)
+                    
+                    if self.tokenizer.pad_token is None:
+                        self.tokenizer.pad_token = self.tokenizer.eos_token
+                        
+                    # for decoder only architectures
+                    self.tokenizer.padding_side = 'left'
+
+            except OSError as e:
+                raise TypeError(
+                    f"{self.name} requires to run `autogoal contrib download transformers`."
+                )
+            except Exception as e:
+                raise e
+
+    def generate(self, prompts):
+        tokenized_batch = self.tokenizer.batch_encode_plus(
+                prompts, return_tensors="pt", padding="longest", truncation=True
+            ).to(self.device)
         
-        count = 0
-        matrix = []
-        for i, token in enumerate(input):
-            contiguous = len(tokens[i])
-            vectors = output[count : count + contiguous, :]
-            vector = self._merge(vectors.to('cpu'))
-            matrix.append(vector)
-            count += contiguous
+        generated_texts = []
+        with torch.no_grad():
+            self.print("Generating text...", end="", flush=True)
+            input_ids = tokenized_batch["input_ids"]
+            attention_mask = tokenized_batch["attention_mask"]
+            max_length = max(self.max_gen_seq_length, input_ids.size()[1])
             
+            output_sequences = self.model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_length=max_length,
+                temperature=self.temperature,
+                repetition_penalty=1.2,
+                do_sample=True,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+            self.print("done")
+                
+            generated_texts = self.tokenizer.batch_decode(output_sequences, skip_special_tokens=True)
             # delete the reference so we can clean the GRAM
-            del vectors
-
-        matrix = np.vstack(matrix)
+            del tokenized_batch
+            
         torch.cuda.empty_cache()
+        return generated_texts
+    
+    def run(self, input: Seq[Prompt]) -> Seq[GeneratedText]:
+        self.init_model()
+        
+        generated_texts = []
+        for i in tqdm(range(0, len(input), self.batch_size)):
+            batch_input = input[i : i + self.batch_size]
 
-        return matrix
+            self.print("Tokenizing...", end="", flush=True)
+            tokenized_batch = self.tokenizer.batch_encode_plus(
+                batch_input, return_tensors="pt", padding="longest", truncation=True
+            ).to(self.device)
+            self.print("done")
+
+            with torch.no_grad():
+                self.print("Generating text...", end="", flush=True)
+                input_ids = tokenized_batch["input_ids"]
+                attention_mask = tokenized_batch["attention_mask"]
+                max_length = max(self.max_gen_seq_length, input_ids.size()[1])
+                
+                output_sequences = self.model.generate(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    # max_length=max_length,
+                    # temperature=self.temperature,
+                    repetition_penalty=1.5,
+                    max_new_tokens=max_length,
+                    # do_sample=True,
+                    pad_token_id=self.tokenizer.eos_token_id,
+                )
+                self.print("done")
+                
+            generated_texts += self.tokenizer.batch_decode(output_sequences, skip_special_tokens=True)
+
+            # delete the reference so we can clean the GRAM
+            del tokenized_batch
+
+        torch.cuda.empty_cache()
+        return generated_texts
+
 
 class PretrainedTextClassifier(TransformersWrapper):
     """
@@ -308,7 +422,7 @@ class PretrainedTextClassifier(TransformersWrapper):
         the pretrained model.
     tokenizer : transformers.PreTrainedTokenizer
         the tokenizer corresponding to the pretrained model."""
-        
+
     def __init__(self, verbose=True) -> None:
         super().__init__()
         self.verbose = verbose
@@ -355,9 +469,9 @@ class PretrainedTextClassifier(TransformersWrapper):
 
         Parameters
         ----------
-        X : 
+        X :
             The input data.
-        y : 
+        y :
             The input labels.
 
         Raises
@@ -368,12 +482,16 @@ class PretrainedTextClassifier(TransformersWrapper):
             If a label in y is not present in the pretrained model labels.
         """
         labels = set(y)
-        
-        assert len(labels) != self.num_classes, f"Input is not compatible. Expected labels are different from petrained labels for model '{self.name}'."
-        
+
+        assert (
+            len(labels) != self.num_classes
+        ), f"Input is not compatible. Expected labels are different from petrained labels for model '{self.name}'."
+
         for l in labels:
             if l not in self.id2label.values():
-                raise KeyError(f"Input is not compatible, label '{l}' is not present in pretrained data for model '{self.name}'")
+                raise KeyError(
+                    f"Input is not compatible, label '{l}' is not present in pretrained data for model '{self.name}'"
+                )
 
     def _train(self, X, y=None):
         if not self._check_input_compatibility(X, y):
@@ -382,7 +500,9 @@ class PretrainedTextClassifier(TransformersWrapper):
             )
         return y
 
-    def _eval(self, X: Seq[Sentence],  y: Supervised[VectorCategorical]) -> VectorCategorical:
+    def _eval(
+        self, X: Seq[Sentence], y: Supervised[VectorCategorical]
+    ) -> VectorCategorical:
         self.init_model()
         self.print("Tokenizing...", end="", flush=True)
 
@@ -409,9 +529,12 @@ class PretrainedTextClassifier(TransformersWrapper):
 
         torch.cuda.empty_cache()
         return classification_vector
-    
-    def run(self, X: Seq[Sentence],  y: Supervised[VectorCategorical]) -> VectorCategorical:
+
+    def run(
+        self, X: Seq[Sentence], y: Supervised[VectorCategorical]
+    ) -> VectorCategorical:
         return TransformersWrapper.run(self, X, y)
+
 
 class PretrainedZeroShotClassifier(TransformersWrapper):
     def __init__(self, batch_size, verbose=False) -> None:
@@ -453,7 +576,10 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
 
             try:
                 self.model = pipeline(
-                    "zero-shot-classification", model=self.name, local_files_only=True, device=self.device
+                    "zero-shot-classification",
+                    model=self.name,
+                    local_files_only=True,
+                    device=self.device,
                 )
             except OSError:
                 raise TypeError(
@@ -461,35 +587,40 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
                 )
 
         classification_vector = []
-        self.print(f"Running Inference with batch size {self.batch_size}...", end="", flush=True)
+        self.print(
+            f"Running Inference with batch size {self.batch_size}...",
+            end="",
+            flush=True,
+        )
         start = time.time()
-        
+
         count = 0
         for i in tqdm(range(0, len(X), self.batch_size), desc="Processing batches"):
-            batch = X[i:i+self.batch_size]
+            batch = X[i : i + self.batch_size]
             self.print(f"Batch {count} with {len(batch)} items", end="", flush=True)
-            count+=1
-            
+            count += 1
+
             warnings.filterwarnings("ignore", category=UserWarning)
             results = self.model(batch, candidate_labels=self.candidate_labels)
             warnings.filterwarnings("default", category=UserWarning)
-            
+
             for result in results:
                 best_score_index = result["scores"].index(max(result["scores"]))
                 predicted_class_id = result["labels"][best_score_index]
                 classification_vector.append(predicted_class_id)
             self.print(f"done batch", end="", flush=True)
-                
+
         end = time.time()
         self.print(f"done inference in {end - start} seconds", end="", flush=True)
 
         torch.cuda.empty_cache()
         return classification_vector
-    
+
     def run(
         self, X: Seq[Sentence], y: Supervised[VectorCategorical]
     ) -> VectorCategorical:
         return TransformersWrapper.run(self, X, y)
+
 
 class PretrainedTokenClassifier(TransformersWrapper):
     def __init__(self, verbose=True) -> None:
@@ -525,9 +656,9 @@ class PretrainedTokenClassifier(TransformersWrapper):
 
         Parameters
         ----------
-        X : 
+        X :
             The input data.
-        y : 
+        y :
             The input labels.
 
         Raises
@@ -538,12 +669,16 @@ class PretrainedTokenClassifier(TransformersWrapper):
             If a label in y is not present in the pretrained model labels.
         """
         labels = set(y)
-        
-        assert len(labels) != self.num_classes, f"Input is not compatible. Expected labels are different from petrained labels for model '{self.name}'."
-        
+
+        assert (
+            len(labels) != self.num_classes
+        ), f"Input is not compatible. Expected labels are different from petrained labels for model '{self.name}'."
+
         for l in labels:
             if l not in self.id2label.values():
-                raise KeyError(f"Input is not compatible, label '{l}' is not present in pretrained data for model '{self.name}'")
+                raise KeyError(
+                    f"Input is not compatible, label '{l}' is not present in pretrained data for model '{self.name}'"
+                )
 
     def _train(self, X, y=None):
         self._check_input_compatibility(X, y)
@@ -555,9 +690,15 @@ class PretrainedTokenClassifier(TransformersWrapper):
                 self.__class__.download()
 
             try:
-                self.model = AutoModelForTokenClassification.from_pretrained(self.name, local_files_only=True).to(self.device)
-                self.tokenizer = AutoTokenizer.from_pretrained(self.name, local_files_only=True)
-                self.classifier = torch.nn.Linear(self.model.config.hidden_size, self.num_classes).to(self.device)
+                self.model = AutoModelForTokenClassification.from_pretrained(
+                    self.name, local_files_only=True
+                ).to(self.device)
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.name, local_files_only=True
+                )
+                self.classifier = torch.nn.Linear(
+                    self.model.config.hidden_size, self.num_classes
+                ).to(self.device)
 
             except OSError:
                 raise TypeError(
@@ -567,8 +708,14 @@ class PretrainedTokenClassifier(TransformersWrapper):
         self.print("Tokenizing...", end="", flush=True)
 
         # Tokenize and encode the sentences
-        encoded_inputs = self.tokenizer(X, is_split_into_words=True, return_tensors="pt", padding=True, truncation=True)
-    
+        encoded_inputs = self.tokenizer(
+            X,
+            is_split_into_words=True,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        )
+
         # Move the encoded inputs to the device
         sequence = encoded_inputs.to(self.device)
         word_ids = encoded_inputs.word_ids()
@@ -578,20 +725,21 @@ class PretrainedTokenClassifier(TransformersWrapper):
             outputs = self.model(**sequence)
 
         predictions = torch.argmax(outputs.logits, dim=2)
-        token_predictions = [self.model.config.id2label[t.item()] for t in predictions[0]]
-        
-        word_labels = [0]*len(X)
-        
+        token_predictions = [
+            self.model.config.id2label[t.item()] for t in predictions[0]
+        ]
+
+        word_labels = [0] * len(X)
+
         for i in range(len(token_predictions)):
             word_index = word_ids[i]
             if word_index == None:
                 continue
-            
+
             word_labels[word_index] = token_predictions[i]
-        
 
         assert len(X) == len(word_labels), "Output does not match input sequence shape"
-        
+
         del sequence
         torch.cuda.empty_cache()
         return word_labels
@@ -605,6 +753,7 @@ def get_task_alias(task):
         if task in alias.value:
             return alias
     return None
+
 
 TASK_TO_ALGORITHM_MARK = {
     TASK_ALIASES.TextClassification: "TEXT_CLASS_",
@@ -622,14 +771,12 @@ TASK_TO_WRAPPER_NAME = {
     TASK_ALIASES.TokenClassification: PretrainedTokenClassifier.__name__,
 }
 
+
 def build_transformers_wrappers(
-    max_amount=1000, 
-    min_likes=100, 
-    min_downloads=1000,
-    download_mode=DOWNLOAD_MODE.HUB
+    max_amount=1000, min_likes=100, min_downloads=1000, download_mode=DOWNLOAD_MODE.HUB
 ):
     path = Path(__file__).parent / "_generated.py"
-    
+
     with open(path, "w") as fp:
         fp.write(
             textwrap.dedent(
@@ -645,18 +792,18 @@ def build_transformers_wrappers(
             """
             )
         )
-        
+
         for target_task in TASK_ALIASES:
             manager = enlighten.get_manager()
-            
+
             imports = download_models_info(
                 target_task,
-                max_amount=max_amount, 
-                min_likes=min_likes, 
+                max_amount=max_amount,
+                min_likes=min_likes,
                 min_downloads=min_downloads,
-                download_mode=download_mode
+                download_mode=download_mode,
             )
-            
+
             counter = manager.counter(total=len(imports), unit="classes")
 
             for cls in imports:
@@ -665,63 +812,87 @@ def build_transformers_wrappers(
 
             counter.close()
             manager.stop()
-        
+
     black.reformat_one(
         path, True, black.WriteBack.YES, black.FileMode(), black.Report()
     )
 
+
 def _write_class(item, fp, target_task):
-    class_name = TASK_TO_ALGORITHM_MARK[target_task] + to_camel_case(item["name"])
+    class_name = TASK_TO_ALGORITHM_MARK[target_task] + to_camel_case(item["name"].replace("-", "_"))
     print("Generating class: %r" % class_name)
-    
+
     task = get_task_alias(item["metadata"]["task"])
     target_task = task if task is not None else target_task
 
     base_class = TASK_TO_WRAPPER_NAME[target_task]
 
-    fp.write(
-        textwrap.dedent(
-            f"""
-        class {class_name}({base_class}):
-            name = "{item["name"]}"
-            id2label = {item["metadata"]["id2label"]}
-            num_classes = {len(item["metadata"]["id2label"])}
-            tags = {len(item["metadata"]["id2label"])}
-            model_type = "{item["metadata"]["model_type"]}"
-            architectures = {item["metadata"]["architectures"]}
-            vocab_size = {item["metadata"]["vocab_size"]}
-            type_vocab_size = {item["metadata"]["type_vocab_size"]}
-            is_decoder = {item["metadata"]["is_decoder"]}
-            is_encoder_decoder = {item["metadata"]["is_encoder_decoder"]}
-            num_layers = {item["metadata"]["num_layers"]}
-            hidden_size = {item["metadata"]["hidden_size"]}
-            num_attention_heads = {item["metadata"]["num_attention_heads"]}
-            
-            def __init__(
-                self, batch_size: DiscreteValue(32, 256)
-            ):
-                {base_class}.__init__(self, batch_size)
+    class_metadata = f"""
+    class {class_name}({base_class}):
+        name = "{item['name']}"
+        id2label = {item['metadata']['id2label']}
+        num_classes = {len(item['metadata']['id2label'])}
+        tags = {len(item['metadata']['id2label'])}
+        model_type = "{item['metadata']['model_type']}"
+        architectures = {item['metadata']['architectures']}
+        vocab_size = {item['metadata']['vocab_size']}
+        type_vocab_size = {item['metadata']['type_vocab_size']}
+        is_decoder = {item['metadata']['is_decoder']}
+        is_encoder_decoder = {item['metadata']['is_encoder_decoder']}
+        num_layers = {item['metadata']['num_layers']}
+        hidden_size = {item['metadata']['hidden_size']}
+        num_attention_heads = {item['metadata']['num_attention_heads']}
+    """
+
+    if target_task == TASK_ALIASES.SeqEmbeddings:
+        class_init = f"""
+        def __init__(
+            self, 
+            batch_size: DiscreteValue(32, 1024),  # type: ignore
+            pooling_strategy: CategoricalValue("mean", "max", "cls"),  # type: ignore
+        ):
+            {base_class}.__init__(
+                self, 
+                batch_size=batch_size,
+                pooling_strategy=pooling_strategy
+            )
         """
-        )
-    )
+    elif target_task == TASK_ALIASES.TextGeneration:
+        class_init = f"""
+        def __init__(
+            self, 
+            batch_size: DiscreteValue(32, 1024),  # type: ignore
+            max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
+            temperature: ContinuousValue(0.01, 1.99),  # type: ignore
+        ):
+            {base_class}.__init__(
+                self, 
+                batch_size=batch_size, 
+                max_gen_seq_length=max_gen_seq_length,
+                temperature=temperature
+            )
+        """
+    else:
+        class_init = f"""
+        def __init__(
+            self, 
+            batch_size: DiscreteValue(32, 1024),  # type: ignore
+        ):
+            {base_class}.__init__(
+                self, 
+                batch_size=batch_size,
+            )
+        """
+
+    class_definition = textwrap.dedent(class_metadata + class_init)
+    fp.write(class_definition)
 
     print("Successfully generated" + class_name)
     fp.flush()
 
 
 if __name__ == "__main__":
-    import nltk
-    nltk.download()
-    
     build_transformers_wrappers(
         max_amount=100,
         download_mode=DOWNLOAD_MODE.BASE,
     )
-    
-    # build_transformers_wrappers(
-    #     target_task=TASK_ALIASES.TokenClassification,
-    #     download_file_path="token_classification_models_info.json",
-    #     max_amount=20,
-    #     download_mode=DOWNLOAD_MODE.SCRAP,
-    #     min_likes=50
-    # )
