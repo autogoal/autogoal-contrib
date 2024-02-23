@@ -861,7 +861,6 @@ class LogisticRegression(_LogisticRegression, SklearnEstimator):
     def __init__(
         self,
         penalty: CategoricalValue("l2", "none"),
-        dual: BooleanValue(),
         C: ContinuousValue(min=0.005, max=9.991),
         fit_intercept: BooleanValue(),
         multi_class: CategoricalValue("auto", "multinomial", "ovr"),
@@ -870,14 +869,13 @@ class LogisticRegression(_LogisticRegression, SklearnEstimator):
         _LogisticRegression.__init__(
             self,
             penalty=penalty,
-            dual=dual,
             C=C,
             fit_intercept=fit_intercept,
             multi_class=multi_class,
         )
         self.init_params = {
             "penalty": penalty,
-            "dual": dual,
+            "dual": False,
             "C": C,
             "fit_intercept": fit_intercept,
             "multi_class": multi_class,

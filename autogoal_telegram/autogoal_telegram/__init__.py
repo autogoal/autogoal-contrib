@@ -16,27 +16,30 @@ class TelegramLogger(Logger):
         self.updater = Updater(token)
         self.dispatcher = self.updater.dispatcher
         self.progress = 0
+        
         self.errors = 0
         self.timeout_errors = 0
+        self.cuda_errors = 0
+        self.memory_errors = 0
+        
         self.generations = 1
+        self.current_generation = 1
         self.bests = []
         self.bests_pipelines = []
         self.current = ""
+        self.message_index = 0
         self.message = self.dispatcher.bot.send_message(
             chat_id=self.channel,
             text=f"<b>{self.name}</b>\nStarting...",
             parse_mode="HTML",
         )
-        self.last_message = self.dispatcher.bot.send_message(
-            chat_id=self.channel,
-            text=f"<b>{self.name} currently:</b>\nStarting...",
-            parse_mode="HTML",
-        )
+        self.last_solution_message = None
         self.objectives = objectives
+        self.message.pin()
 
     def begin(self, generations, pop_size):
         self.generations = generations
-        self._send()
+        self._send_status()
         
     def update_best(
         self,
@@ -50,53 +53,94 @@ class TelegramLogger(Logger):
     ):
         self.bests = new_best_fns
         self.bests_pipelines = new_best_solutions
-        self._send()
+        
+        self._send_status()
 
     def end(self, best_solutions, best_fns):
+        self.bests_pipelines = best_solutions
         self.bests = best_fns
-        self._send()
+        self._send_status()
         
     def sample_solution(self, solution):
         text = f"""
         Evaluating pipeline:
         Pipeline: <code>{repr(solution)}</code>
         """
-        self._send_update(textwrap.dedent(text))
+        self.last_solution_message = self._send_new(textwrap.dedent(text))
         
     def error(self, e: Exception, solution):
         text = f"""
-        Error evaluating pipeline:
-        Pipeline: <code>{repr(solution)}</code>
-        Error: <u>{e}</u>
+        Error:
+        <u>{e}</u>
         """
         self.errors += 1
         if re.search("time for execution", str(e).lower()):
             self.timeout_errors += 1
+            
+        if re.search("cuda out of memory", str(e).lower()):
+            self.cuda_errors += 1
         
-        self._send_update(textwrap.dedent(text))
+        if self.last_solution_message:
+            previous_message = self.last_solution_message.text_html
+            self._send_update(textwrap.dedent(previous_message + text), self.last_solution_message)
+        else:
+            self._send_new(textwrap.dedent(text))
         
     def eval_solution(self, solution, fitness):
         self.progress += 1
-        self._send()
+        self._send_status()
+        
+        text = f"""
+        Success!:
+        <u>{fitness}</u>
+        """
+        
+        if self.last_solution_message:
+            previous_message = self.last_solution_message.text_html
+            self._send_update(textwrap.dedent(previous_message + text), self.last_solution_message)
+        else:
+            self._send_new(textwrap.dedent(text))
 
-    def _send_update(self, text):
+    def _send_update(self, text, message=None):
         if not self.channel:
             return
         
-        if time.time() - self.last_time_other < 5:
-            time.sleep(5)
+        if message is None:
+            message = self.message
+        
+        if time.time() - self.last_time_other < 2:
+            time.sleep(2)
 
         self.last_time_other = time.time()
         
         try:
-            self.last_message.edit_text(
-                text=f"<b>{self.name} currently:</b>\n{text}",
+            self.message.edit_text(
+                text=f"<b>{self.name} [{self.message_index}] currently:</b>\n{text}",
                 parse_mode="HTML",
             )
         except Exception as e:
+            print(f"Telegram Logger exception: {e}")
+            pass
+        
+    def _send_new(self, text):
+        if not self.channel:
+            return
+        
+        if time.time() - self.last_time_other < 2:
+            time.sleep(2)
+
+        try:
+            self.message_index += 1
+            return self.dispatcher.bot.send_message(
+                chat_id=self.channel,
+                text=f"{text}",
+                parse_mode="HTML",
+            )
+        except Exception as e:
+            print(f"Telegram Logger exception: {e}")
             pass
 
-    def _send(self):
+    def _send_status(self):
         if not self.channel:
             return
 
@@ -143,11 +187,15 @@ class TelegramLogger(Logger):
             <b>{self.name}</b>
             
             Iterations: `{self.progress}/{self.generations}`
-            Errors: `{self.errors}`
-            Timeouts: `{self.timeout_errors}/{self.errors}`
             
-            Best fitness: `{self.bests}`
-            Pareto Front: `{pareto_front}`
+            ------ ERRORS ------
+            Timeouts: `{self.timeout_errors}`
+            CUDA: `{self.cuda_errors}`
+            Other: `{self.errors - self.timeout_errors - self.cuda_errors}`
+            Total Errors: `{self.errors}`
+
+            ------ PARETO FRONT ------
+            `{pareto_front}`
             """
         )
         try:

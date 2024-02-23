@@ -11,14 +11,18 @@ from autogoal.utils import nice_repr
 class SpacyNLP(AlgorithmBase):
     def __init__(
         self,
-        language: CategoricalValue("en", "es"),
-        extract_pos: BooleanValue(),
-        extract_lemma: BooleanValue(),
-        extract_pos_tag: BooleanValue(),
-        extract_dep: BooleanValue(),
-        extract_entity: BooleanValue(),
-        extract_details: BooleanValue(),
-        extract_sentiment: BooleanValue(),
+        language: CategoricalValue(
+            "en_core_web_md", "en_core_web_lg",
+            "es_core_news_sm", "es_core_news_md", "es_core_news_lg",
+            "xx_ent_wiki_sm"
+        ), # type: ignore
+        extract_pos: BooleanValue(), # type: ignore
+        extract_lemma: BooleanValue(), # type: ignore
+        extract_pos_tag: BooleanValue(), # type: ignore
+        extract_dep: BooleanValue(), # type: ignore
+        extract_entity: BooleanValue(), # type: ignore
+        extract_details: BooleanValue(), # type: ignore
+        extract_sentiment: BooleanValue(), # type: ignore
     ):
         self.language = language
         self.extract_pos = extract_pos

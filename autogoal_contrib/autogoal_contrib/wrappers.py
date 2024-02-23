@@ -34,6 +34,7 @@ class DenseMatriConcatenator(AlgorithmBase):
         result = np.concatenate([input, input2_matrix], axis=1)
         return result
     
+@nice_repr
 class DenseClassifier(AlgorithmBase):
     def __init__(self, classifier: algorithm(MatrixContinuous, Supervised[VectorCategorical], VectorCategorical)):
         super().__init__()
@@ -117,24 +118,27 @@ class MultipleFeatureExtractor(AlgorithmBase):
     def __init__(
         self,
         extractors: Distinct(
-            algorithm(Word, FeatureSet), exceptions=["MultipleFeatureExtractor"]
+            algorithm(Word, FeatureSet), exceptions=["MultipleFeatureExtractor", "SentenceFeatureExtractor", "DocumentFeatureExtractor"]
         ),
         merger: algorithm(Seq[FeatureSet], FeatureSet),
     ):
-        self.extractors = extractors
+        self.extractors = [extractor() for extractor in extractors]
         self.merger = merger
 
     def run(self, input: Word) -> FeatureSet:
-        flags = [extractor.run(input) for extractor in self.extractors]
+        flags = []
+        
+        for extractor in self.extractors:
+            flags.append(extractor.run(input))
+            
         return self.merger.run(flags)
-
 
 @nice_repr
 class SentenceFeatureExtractor(AlgorithmBase):
     def __init__(
         self,
         tokenizer: algorithm(Sentence, Seq[Word]),
-        feature_extractor: algorithm(Word, FeatureSet),
+        feature_extractor: algorithm(Word, FeatureSet, exceptions=["SentenceFeatureExtractor"]),
         include_text: BooleanValue(),
     ):
         self.tokenizer = tokenizer
@@ -143,7 +147,10 @@ class SentenceFeatureExtractor(AlgorithmBase):
 
     def run(self, input: Sentence) -> FeatureSet:
         tokens = self.tokenizer.run(input)
-        flags = [self.feature_extractor.run(w) for w in tokens]
+        
+        flags = []
+        for w in tokens:
+            flags.append(self.feature_extractor.run(w))
 
         if self.include_text:
             return {
@@ -152,13 +159,26 @@ class SentenceFeatureExtractor(AlgorithmBase):
         else:
             return {f: v for flag in flags for f, v in flag.items()}
 
+@nice_repr
+class SentenceSeqWordFeatureExtractor(AlgorithmBase):
+    def __init__(
+        self,
+        tokenizer: algorithm(Sentence, Seq[Word]),
+        feature_extractor: algorithm(Seq[Word], Seq[FeatureSet]),
+    ):
+        self.tokenizer = tokenizer
+        self.feature_extractor = feature_extractor
+
+    def run(self, input: Sentence) -> Seq[FeatureSet]:
+        tokens = self.tokenizer.run(input)
+        return self.feature_extractor.run(tokens)
 
 @nice_repr
 class DocumentFeatureExtractor(AlgorithmBase):
     def __init__(
         self,
         tokenizer: algorithm(Document, Seq[Sentence]),
-        feature_extractor: algorithm(Sentence, FeatureSet),
+        feature_extractor: algorithm(Sentence, FeatureSet, exceptions=["DocumentFeatureExtractor"]),
     ):
         self.tokenizer = tokenizer
         self.feature_extractor = feature_extractor
@@ -166,4 +186,4 @@ class DocumentFeatureExtractor(AlgorithmBase):
     def run(self, input: Document) -> Seq[FeatureSet]:
         tokens = self.tokenizer.run(input)
         flags = [self.feature_extractor.run(w) for w in tokens]
-        return
+        return flags
