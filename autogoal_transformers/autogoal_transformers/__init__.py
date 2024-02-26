@@ -23,6 +23,7 @@ except:
 
 from autogoal_transformers._bert import BertEmbedding, BertSequenceEmbedding, BertTokenizeSequenceEmbedding
 from autogoal_transformers._generated import *
+from autogoal_transformers._manual import *
 
 def download():
     BertEmbedding.download()

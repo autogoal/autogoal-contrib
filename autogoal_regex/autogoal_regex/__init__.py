@@ -8,7 +8,7 @@ from autogoal.kb import AlgorithmBase
 
 
 class _Regex(AlgorithmBase):
-    def __init__(self, full: BooleanValue):
+    def __init__(self, full: BooleanValue()):
         self.full = full
         self._name = self.__class__.__name__[: -len("Regex")].lower()
 

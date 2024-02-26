@@ -114,8 +114,8 @@ class TelegramLogger(Logger):
         self.last_time_other = time.time()
         
         try:
-            self.message.edit_text(
-                text=f"<b>{self.name} [{self.message_index}] currently:</b>\n{text}",
+            message.edit_text(
+                text=f"{text}",
                 parse_mode="HTML",
             )
         except Exception as e:
@@ -133,7 +133,7 @@ class TelegramLogger(Logger):
             self.message_index += 1
             return self.dispatcher.bot.send_message(
                 chat_id=self.channel,
-                text=f"{text}",
+                text=f"<b>{self.name} [{self.message_index}]:</b>\n\n{text}",
                 parse_mode="HTML",
             )
         except Exception as e:

@@ -7,6 +7,7 @@ import black
 import enlighten
 import numpy as np
 import torch
+import torch.nn.functional as F
 from autogoal_transformers._utils import (
     download_models_info,
     to_camel_case,
@@ -198,7 +199,8 @@ class PretrainedSequenceEmbedding(TransformersWrapper):
     def __init__(
         self,
         batch_size: DiscreteValue(32, 1024),  # type: ignore
-        pooling_strategy: CategoricalValue("mean", "max", "cls"),  # type: ignore
+        pooling_strategy: CategoricalValue("mean", "max", "cls", "rms", "mean:max", "first:last"),  # type: ignore
+        normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
         *,
         verbose=False,
     ):
@@ -213,6 +215,7 @@ class PretrainedSequenceEmbedding(TransformersWrapper):
         self.tokenizer = None
         self.batch_size = batch_size
         self.pooling_strategy = pooling_strategy
+        self.normalization_strategy = normalization_strategy
 
     def run(self, input: Seq[Sentence]) -> MatrixContinuousDense:
         self.init_model()
@@ -227,28 +230,81 @@ class PretrainedSequenceEmbedding(TransformersWrapper):
 
             with torch.no_grad():
                 self.print("Embedding...", end="", flush=True)
-                output = self.model(**encoded_input).last_hidden_state
+                outputs = self.model(**encoded_input)
+                hidden_states = outputs.last_hidden_state
+
                 self.print("done")
 
-                # Average the embeddings to get a sentence-level representation
                 # Use the pooling strategy
-                if self.pooling_strategy == "mean":
-                    batch_seq_embeddings = output.mean(dim=1).to("cpu")
-                elif self.pooling_strategy == "max":
-                    batch_seq_embeddings = output.max(dim=1).values.to("cpu")
-                elif self.pooling_strategy == "cls":
-                    batch_seq_embeddings = output[:, 0, :].to("cpu")
-                else:
-                    raise ValueError(f"Unknown pooling strategy: {self.pooling_strategy}")
-                
+                batch_seq_embeddings = self.pool(hidden_states)
+
+                # Use the normalization strategy
+                if self.normalization_strategy != "none":
+                    batch_seq_embeddings = self.normalize(batch_seq_embeddings)
+
                 embeddings.extend(batch_seq_embeddings)
 
             # delete the reference so we can clean the GRAM
-            del encoded_input, output
+            del encoded_input, outputs
             torch.cuda.empty_cache()
-        
+
         matrix = np.vstack(embeddings)
         return matrix
+
+    def pool(self, hidden_states):
+        if self.pooling_strategy == "mean":
+            batch_seq_embeddings = hidden_states.mean(dim=1)
+        elif self.pooling_strategy == "max":
+            batch_seq_embeddings = hidden_states.max(dim=1).values
+        elif self.pooling_strategy == "cls":
+            batch_seq_embeddings = hidden_states[:, 0, :]
+        elif self.pooling_strategy == "rms":
+            batch_seq_embeddings = torch.sqrt((hidden_states**2).mean(dim=1))
+        elif self.pooling_strategy == "mean:max":
+            batch_seq_embeddings = torch.cat(
+                [
+                    hidden_states.mean(dim=1),
+                    hidden_states.max(dim=1).values,
+                ],
+                dim=1,
+            )
+        elif self.pooling_strategy == "mean:max:rms":
+            batch_seq_embeddings = torch.cat(
+                [
+                    hidden_states.mean(dim=1),
+                    hidden_states.max(dim=1).values,
+                    torch.sqrt((hidden_states**2).mean(dim=1)),
+                ],
+                dim=1,
+            )
+        elif self.pooling_strategy == "first:last":
+            batch_seq_embeddings = torch.cat(
+                (hidden_states[:, 0, :], hidden_states[:, -1, :]), dim=-1
+            )
+        else:
+            raise ValueError(f"Unknown pooling strategy: {self.pooling_strategy}")
+        return batch_seq_embeddings.to("cpu")
+
+    def normalize(self, embeddings):
+        if self.normalization_strategy == "l2":
+            normalized_embeddings = F.normalize(embeddings, p=2, dim=1)
+        elif self.normalization_strategy == "l1":
+            normalized_embeddings = F.normalize(embeddings, p=1, dim=1)
+        elif self.normalization_strategy == "min-max":
+            min_val = embeddings.min(dim=1, keepdim=True)[0]
+            max_val = embeddings.max(dim=1, keepdim=True)[0]
+            normalized_embeddings = (embeddings - min_val) / (max_val - min_val)
+        elif self.normalization_strategy == "z-score":
+            mean = embeddings.mean(dim=1, keepdim=True)
+            std = embeddings.std(dim=1, keepdim=True)
+            normalized_embeddings = (embeddings - mean) / std
+        elif self.normalization_strategy == "none":
+            normalized_embeddings = embeddings
+        else:
+            raise ValueError(
+                f"Unknown normalization strategy: {self.normalization_strategy}"
+            )
+        return normalized_embeddings.to("cpu")
 
 
 class PretrainedTextGeneration(TransformersWrapper):
@@ -313,7 +369,7 @@ class PretrainedTextGeneration(TransformersWrapper):
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     self.name, local_files_only=True
                 )
-                
+
                 if self.is_encoder_decoder:
                     self.model = AutoModelForSeq2SeqLM.from_pretrained(
                         self.name, local_files_only=True
@@ -322,12 +378,12 @@ class PretrainedTextGeneration(TransformersWrapper):
                     self.model = AutoModelForCausalLM.from_pretrained(
                         self.name, local_files_only=True
                     ).to(self.device)
-                    
+
                     if self.tokenizer.pad_token is None:
                         self.tokenizer.pad_token = self.tokenizer.eos_token
-                        
+
                     # for decoder only architectures
-                    self.tokenizer.padding_side = 'left'
+                    self.tokenizer.padding_side = "left"
 
             except OSError as e:
                 raise TypeError(
@@ -338,16 +394,16 @@ class PretrainedTextGeneration(TransformersWrapper):
 
     def generate(self, prompts):
         tokenized_batch = self.tokenizer.batch_encode_plus(
-                prompts, return_tensors="pt", padding="longest", truncation=True
-            ).to(self.device)
-        
+            prompts, return_tensors="pt", padding="longest", truncation=True
+        ).to(self.device)
+
         generated_texts = []
         with torch.no_grad():
             self.print("Generating text...", end="", flush=True)
             input_ids = tokenized_batch["input_ids"]
             attention_mask = tokenized_batch["attention_mask"]
             max_length = max(self.max_gen_seq_length, input_ids.size()[1])
-            
+
             output_sequences = self.model.generate(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -358,17 +414,19 @@ class PretrainedTextGeneration(TransformersWrapper):
                 pad_token_id=self.tokenizer.eos_token_id,
             )
             self.print("done")
-                
-            generated_texts = self.tokenizer.batch_decode(output_sequences, skip_special_tokens=True)
+
+            generated_texts = self.tokenizer.batch_decode(
+                output_sequences, skip_special_tokens=True
+            )
             # delete the reference so we can clean the GRAM
             del tokenized_batch
-            
+
         torch.cuda.empty_cache()
         return generated_texts
-    
+
     def run(self, input: Seq[Prompt]) -> Seq[GeneratedText]:
         self.init_model()
-        
+
         generated_texts = []
         for i in tqdm(range(0, len(input), self.batch_size)):
             batch_input = input[i : i + self.batch_size]
@@ -384,7 +442,7 @@ class PretrainedTextGeneration(TransformersWrapper):
                 input_ids = tokenized_batch["input_ids"]
                 attention_mask = tokenized_batch["attention_mask"]
                 max_length = max(self.max_gen_seq_length, input_ids.size()[1])
-                
+
                 output_sequences = self.model.generate(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
@@ -396,8 +454,10 @@ class PretrainedTextGeneration(TransformersWrapper):
                     pad_token_id=self.tokenizer.eos_token_id,
                 )
                 self.print("done")
-                
-            generated_texts += self.tokenizer.batch_decode(output_sequences, skip_special_tokens=True)
+
+            generated_texts += self.tokenizer.batch_decode(
+                output_sequences, skip_special_tokens=True
+            )
 
             # delete the reference so we can clean the GRAM
             del tokenized_batch
@@ -819,7 +879,9 @@ def build_transformers_wrappers(
 
 
 def _write_class(item, fp, target_task):
-    class_name = TASK_TO_ALGORITHM_MARK[target_task] + to_camel_case(item["name"].replace("-", "_"))
+    class_name = TASK_TO_ALGORITHM_MARK[target_task] + to_camel_case(
+        item["name"].replace("-", "_")
+    )
     print("Generating class: %r" % class_name)
 
     task = get_task_alias(item["metadata"]["task"])
@@ -849,12 +911,14 @@ def _write_class(item, fp, target_task):
         def __init__(
             self, 
             batch_size: DiscreteValue(32, 1024),  # type: ignore
-            pooling_strategy: CategoricalValue("mean", "max", "cls"),  # type: ignore
+            pooling_strategy: CategoricalValue("first:last"),  # type: ignore
+            normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
         ):
             {base_class}.__init__(
                 self, 
                 batch_size=batch_size,
-                pooling_strategy=pooling_strategy
+                pooling_strategy=pooling_strategy,
+                normalization_strategy=normalization_strategy
             )
         """
     elif target_task == TASK_ALIASES.TextGeneration:

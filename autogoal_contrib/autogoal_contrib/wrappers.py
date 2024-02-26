@@ -187,3 +187,8 @@ class DocumentFeatureExtractor(AlgorithmBase):
         tokens = self.tokenizer.run(input)
         flags = [self.feature_extractor.run(w) for w in tokens]
         return flags
+
+@nice_repr
+class DocumentAsSentence(AlgorithmBase):
+    def run(self, input: Document) -> Sentence:
+        return input
