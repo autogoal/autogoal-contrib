@@ -953,7 +953,7 @@ def _write_class(item, fp, target_task):
         def __init__(
             self, 
             batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
-            pooling_strategy: CategoricalValue("first:last"),  # type: ignore
+            pooling_strategy: CategoricalValue("mean", "max", "cls", "rms", "mean:max", "first:last"),  # type: ignore
             normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
         ):
             {base_class}.__init__(
