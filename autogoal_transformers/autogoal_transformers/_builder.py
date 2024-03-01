@@ -216,6 +216,48 @@ class PretrainedSequenceEmbedding(TransformersWrapper):
         self.batch_size = batch_size
         self.pooling_strategy = pooling_strategy
         self.normalization_strategy = normalization_strategy
+        self.embedding_dim = None
+        
+    def init_model(self):
+        if self.model is None:
+            if not self.__class__.check_files():
+                self.__class__.download()
+            try:
+                self.model = AutoModel.from_pretrained(
+                    self.name, local_files_only=True
+                ).to(self.device)
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.name, local_files_only=True
+                )
+                self.embedding_dim = self.model.config.hidden_size * (self.pooling_strategy.count(":") + 1)
+            except OSError as e:
+                raise TypeError(
+                    f"{self.name} requires to run `autogoal contrib download transformers`."
+                )
+            except Exception as e:
+                raise e
+
+    def run_unbatched(self, input) -> MatrixContinuousDense:
+        self.init_model()
+        
+        with torch.no_grad():
+            self.print("Embedding...", end="", flush=True)
+            outputs = self.model(**input)
+            hidden_states = outputs.last_hidden_state
+            self.print("done")
+
+            # Use the pooling strategy
+            embeddings = self.pool(hidden_states)
+
+            # Use the normalization strategy
+            if self.normalization_strategy != "none":
+                embeddings = self.normalize(embeddings)
+
+        # Delete the reference to help with GPU memory management
+        del outputs
+        torch.cuda.empty_cache()
+
+        return embeddings
 
     def run(self, input: Seq[Sentence]) -> MatrixContinuousDense:
         self.init_model()
@@ -910,7 +952,7 @@ def _write_class(item, fp, target_task):
         class_init = f"""
         def __init__(
             self, 
-            batch_size: DiscreteValue(32, 1024),  # type: ignore
+            batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
             pooling_strategy: CategoricalValue("first:last"),  # type: ignore
             normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
         ):
@@ -925,7 +967,7 @@ def _write_class(item, fp, target_task):
         class_init = f"""
         def __init__(
             self, 
-            batch_size: DiscreteValue(32, 1024),  # type: ignore
+            batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
             max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
             temperature: ContinuousValue(0.01, 1.99),  # type: ignore
         ):
@@ -940,7 +982,7 @@ def _write_class(item, fp, target_task):
         class_init = f"""
         def __init__(
             self, 
-            batch_size: DiscreteValue(32, 1024),  # type: ignore
+            batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         ):
             {base_class}.__init__(
                 self, 

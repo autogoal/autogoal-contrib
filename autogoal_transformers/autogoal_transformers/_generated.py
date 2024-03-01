@@ -36,7 +36,7 @@ class WORD_EMB_Bert_Base_Uncased(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -61,7 +61,7 @@ class WORD_EMB_Bert_Large_Uncased(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -86,7 +86,7 @@ class WORD_EMB_Bert_Base_Cased(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -111,7 +111,7 @@ class WORD_EMB_Bert_Large_Cased(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -136,7 +136,7 @@ class WORD_EMB_Bert_Base_Multilingual_Uncased(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -161,7 +161,7 @@ class WORD_EMB_Bert_Base_Multilingual_Cased(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -186,7 +186,7 @@ class WORD_EMB_Distilbert_Base_Uncased(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -211,7 +211,7 @@ class WORD_EMB_Distilbert_Base_Cased(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -236,7 +236,7 @@ class WORD_EMB_Distilbert_Base_Multilingual_Cased(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -261,7 +261,7 @@ class WORD_EMB_Roberta_Base(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -286,7 +286,7 @@ class WORD_EMB_Roberta_Large(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -311,7 +311,7 @@ class WORD_EMB_Microsoft_Deberta_V3_Base(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -336,7 +336,7 @@ class WORD_EMB_Microsoft_Deberta_Base(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -361,7 +361,7 @@ class WORD_EMB_Microsoft_Mdeberta_V3_Base(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -386,7 +386,7 @@ class WORD_EMB_Albert_Base_V1(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -411,7 +411,7 @@ class WORD_EMB_Albert_Large_V1(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -436,7 +436,7 @@ class WORD_EMB_Albert_Xlarge_V1(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -461,7 +461,7 @@ class WORD_EMB_Albert_Xxlarge_V1(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -486,7 +486,7 @@ class WORD_EMB_Google_Electra_Small_Discriminator(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -511,7 +511,7 @@ class WORD_EMB_Google_Electra_Base_Discriminator(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -536,7 +536,7 @@ class WORD_EMB_Google_Electra_Large_Discriminator(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -561,7 +561,7 @@ class WORD_EMB_Xlm_Roberta_Base(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -586,7 +586,7 @@ class WORD_EMB_Xlm_Roberta_Large(PretrainedWordEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
     ):
         PretrainedWordEmbedding.__init__(
             self,
@@ -611,7 +611,7 @@ class SEQ_EMB_Bert_Base_Uncased(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -640,7 +640,7 @@ class SEQ_EMB_Bert_Large_Uncased(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -669,7 +669,7 @@ class SEQ_EMB_Bert_Base_Cased(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -698,7 +698,7 @@ class SEQ_EMB_Bert_Large_Cased(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -727,7 +727,7 @@ class SEQ_EMB_Bert_Base_Multilingual_Uncased(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -756,7 +756,7 @@ class SEQ_EMB_Bert_Base_Multilingual_Cased(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -785,7 +785,7 @@ class SEQ_EMB_Distilbert_Base_Uncased(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -814,7 +814,7 @@ class SEQ_EMB_Distilbert_Base_Cased(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -843,7 +843,7 @@ class SEQ_EMB_Distilbert_Base_Multilingual_Cased(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -872,7 +872,7 @@ class SEQ_EMB_Roberta_Base(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -901,7 +901,7 @@ class SEQ_EMB_Roberta_Large(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -930,7 +930,7 @@ class SEQ_EMB_Microsoft_Deberta_V3_Base(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -959,7 +959,7 @@ class SEQ_EMB_Microsoft_Deberta_Base(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -988,7 +988,7 @@ class SEQ_EMB_Microsoft_Mdeberta_V3_Base(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1017,7 +1017,7 @@ class SEQ_EMB_Albert_Base_V1(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1046,7 +1046,7 @@ class SEQ_EMB_Albert_Large_V1(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1075,7 +1075,7 @@ class SEQ_EMB_Albert_Xlarge_V1(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1104,7 +1104,7 @@ class SEQ_EMB_Albert_Xxlarge_V1(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1133,7 +1133,7 @@ class SEQ_EMB_Google_Electra_Small_Discriminator(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1162,7 +1162,7 @@ class SEQ_EMB_Google_Electra_Base_Discriminator(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1191,7 +1191,7 @@ class SEQ_EMB_Google_Electra_Large_Discriminator(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1220,7 +1220,7 @@ class SEQ_EMB_Xlm_Roberta_Base(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1249,7 +1249,7 @@ class SEQ_EMB_Xlm_Roberta_Large(PretrainedSequenceEmbedding):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         pooling_strategy: CategoricalValue("first:last"),  # type: ignore
         normalization_strategy: CategoricalValue("l2", "l1", "min-max", "z-score", "none"),  # type: ignore
     ):
@@ -1278,7 +1278,7 @@ class TEXT_GEN_Google_T5_T5_Small(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1307,7 +1307,7 @@ class TEXT_GEN_Google_T5_T5_Base(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1336,7 +1336,7 @@ class TEXT_GEN_Google_T5_T5_Large(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1365,7 +1365,7 @@ class TEXT_GEN_Google_T5_T5_3B(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1394,7 +1394,7 @@ class TEXT_GEN_Google_T5_T5_11B(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1423,7 +1423,7 @@ class TEXT_GEN_Google_Flan_T5_Base(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1452,7 +1452,7 @@ class TEXT_GEN_Google_Flan_T5_Large(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1481,7 +1481,7 @@ class TEXT_GEN_Google_Flan_T5_Xxl(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1510,7 +1510,7 @@ class TEXT_GEN_Google_Flan_T5_Xl(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1539,7 +1539,7 @@ class TEXT_GEN_Gpt2(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1568,7 +1568,7 @@ class TEXT_GEN_Gpt2_Medium(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1597,7 +1597,7 @@ class TEXT_GEN_Gpt2_Large(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
@@ -1626,7 +1626,7 @@ class TEXT_GEN_Gpt2_Xl(PretrainedTextGeneration):
 
     def __init__(
         self,
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
         max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
         temperature: ContinuousValue(0.01, 1.99),  # type: ignore
     ):
