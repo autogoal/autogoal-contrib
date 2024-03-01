@@ -90,8 +90,12 @@ class TelegramLogger(Logger):
         self.progress += 1
         self._send_status()
         
+        if ("inf" in str(fitness).lower()):
+            return
+            
+        
         text = f"""
-        Success!:
+        Success:
         <u>{fitness}</u>
         """
         
