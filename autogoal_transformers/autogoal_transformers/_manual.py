@@ -8,13 +8,14 @@ from autogoal.kb import (
     Sentence,
     MatrixContinuousDense,
     VectorCategorical,
+    VectorDiscrete,
     Document,
 )
 from autogoal.kb._algorithm import _make_list_args_and_kwargs
 from autogoal.kb import algorithm, AlgorithmBase
-from autogoal.grammar import DiscreteValue, CategoricalValue, BooleanValue
+from autogoal.grammar import DiscreteValue, CategoricalValue, BooleanValue, ContinuousValue
 from autogoal.utils import nice_repr
-from autogoal_transformers._builder import TransformersWrapper
+from autogoal_transformers._builder import TransformersWrapper, PretrainedSequenceEmbedding
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -23,7 +24,52 @@ from autogoal.utils._process import is_cuda_multiprocessing_enabled
 import textwrap
 import re
 
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, Dataset
+from torch.optim import AdamW
+from transformers import get_linear_schedule_with_warmup
 
+class SentenceDataset(Dataset):
+    def __init__(self, sentences, labels, tokenizer, max_length):
+        """
+        Initializes the dataset.
+
+        :param sentences: A list of sentences to be tokenized.
+        :param tokenizer: The tokenizer to be used for tokenizing the sentences.
+        :param max_length: The maximum length of the tokenized sequences.
+        """
+        self.sentences = sentences
+        self.labels = labels
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.device = (
+            torch.device("cuda:0")
+            if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
+            else torch.device("cpu")
+        )
+
+    def __len__(self):
+        return len(self.sentences)
+
+    def __getitem__(self, idx):
+        sentence = self.sentences[idx]
+        label = self.labels[idx] if not self.labels is None else None # Assuming labels are already integers
+        inputs = self.tokenizer(
+            sentence,
+            max_length=self.max_length,
+            padding='max_length',
+            truncation=True,
+            return_tensors="pt"
+        )
+        
+        # Flatten the output tensors to remove the batch dimension added by return_tensors
+        inputs = {key: val.squeeze(0).to(self.device) for key, val in inputs.items()}
+        
+        if label is None:
+            return {'data': inputs}
+        return {'data': inputs, 'labels': torch.tensor(label, dtype=torch.long).to(self.device)}
+    
 @nice_repr
 class SeqPretrainedTokenClassifier(AlgorithmBase):
     def __init__(
@@ -36,7 +82,6 @@ class SeqPretrainedTokenClassifier(AlgorithmBase):
     def run(self, X: Seq[Seq[Word]], y: Supervised[Seq[Seq[Label]]]) -> Seq[Seq[Label]]:
         args_kwargs = _make_list_args_and_kwargs(X, y)
         return [self.inner.run(*t.args, **t.kwargs) for t in args_kwargs]
-
 
 @nice_repr
 class TGenerationBasedPretrainedEmbedder(AlgorithmBase):
@@ -84,20 +129,17 @@ class TGenerationBasedPretrainedEmbedder(AlgorithmBase):
             torch.cuda.empty_cache()
         return np.vstack(embeddings_matrix)
 
-
 @nice_repr
 class CARPClassifier(TransformersWrapper):
     def __init__(
         self,
-        zero_shot: BooleanValue(),  # type: ignore
-        few_shots_amount: CategoricalValue(16, 32, 64, 128),  # type: ignore
+        few_shots_amount: CategoricalValue(2, 4, 8, 16, 32, 64, 128),  # type: ignore
         training_examples_selection_method: CategoricalValue("random"),  # type: ignore
         pretrained_text_generator: algorithm(Seq[Prompt], Seq[GeneratedText]),  # type: ignore
     ) -> None:
         super().__init__()
         self.pretrained_text_generator = pretrained_text_generator
         self.batch_size = self.pretrained_text_generator.batch_size
-        self.zero_shot = zero_shot
         self.few_shots_amount = few_shots_amount
         self.training_examples_selection_method = training_examples_selection_method
         self.device = (
@@ -110,14 +152,12 @@ class CARPClassifier(TransformersWrapper):
         self.pretrained_text_generator.init_model()
         self.pretrained_text_generator.max_gen_seq_length = 200
         self.pretrained_text_generator.temperature = 1
-        # if self.zero_shot:
-        #     return y
 
         self.augmented_data = self.augment_data(X, y)
         return y
 
     def _eval(self, X, y) -> VectorCategorical:
-        self.init_model()
+        self.pretrained_text_generator.init_model()
 
         base_prompt = textwrap.dedent(
             f"""
@@ -143,7 +183,7 @@ class CARPClassifier(TransformersWrapper):
             training_examples_text = "\n".join(
                 [self.augmented_data[i]["training_example"] for i in training_examples]
             )
-            augmented_prompts = base_prompt + textwrap.dedent(
+            augmented_prompts.append(base_prompt + textwrap.dedent(
                 f"""
                 {training_examples_text}
                 
@@ -153,11 +193,11 @@ class CARPClassifier(TransformersWrapper):
                 REASONING:
                 LABEL:
                 """
-            )
+            ))
 
         generated_text = self.pretrained_text_generator.run(augmented_prompts)
         labels_pattern = "|".join(map(re.escape, self.unique_labels))
-        pattern = f"(?<=target.*LABEL:.*?\\n)({labels_pattern})"
+        pattern = f"{labels_pattern}"
 
         results = []
         for text in generated_text:
@@ -255,6 +295,104 @@ class CARPClassifier(TransformersWrapper):
     ) -> VectorCategorical:
         return TransformersWrapper.run(self, X, y)
 
+@nice_repr
+class GenerativeClassifier(TransformersWrapper):
+    def __init__(
+        self,
+        zero_shot: BooleanValue(),  # type: ignore
+        few_shots_amount: CategoricalValue(16, 32, 64, 128),  # type: ignore
+        training_examples_selection_method: CategoricalValue("random"),  # type: ignore
+        pretrained_text_generator: algorithm(Seq[Prompt], Seq[GeneratedText]),  # type: ignore
+    ) -> None:
+        super().__init__()
+        self.pretrained_text_generator = pretrained_text_generator
+        self.batch_size = self.pretrained_text_generator.batch_size
+        self.zero_shot = zero_shot
+        self.few_shots_amount = few_shots_amount
+        self.training_examples_selection_method = training_examples_selection_method
+        self.device = (
+            torch.device("cuda")
+            if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
+            else torch.device("cpu")
+        )
+
+    def _train(self, X, y):
+        self.pretrained_text_generator.init_model()
+        self.pretrained_text_generator.max_gen_seq_length = 200
+        self.pretrained_text_generator.temperature = 1
+        self.unique_labels = np.unique(y)
+        self.unique_labels_text = ", ".join(self.unique_labels)
+        
+        if self.zero_shot:
+            return y
+
+        self.augmented_data = list(zip(X, y))
+        return y
+
+    def _eval(self, X, y) -> VectorCategorical:
+        self.pretrained_text_generator.init_model()
+        base_prompt = textwrap.dedent(
+            f"""
+            This is a text classifier. Only respond with the target class to predict. Follow the next steps for arriving to a target LABEL.
+            Categorize the target class of input as one of the following: {self.unique_labels_text}.
+            
+            Make sure you base your response on the examples below. RESPOND ONLY WITH THE LABEL!!!.
+            """
+        )
+
+        augmented_prompts = []
+        if (not self.zero_shot):
+            for i in range(len(X)):
+                training_examples = []
+                if self.training_examples_selection_method == "random":
+                    training_examples = np.random.choice(
+                        range(len(self.augmented_data)), self.few_shots_amount
+                    )
+
+                training_examples_text = "\n".join([
+                    f"""
+                    example {i}
+                    INPUT: {self.augmented_data[i][0]}
+                    LABEL: {self.augmented_data[i][1]}
+                    """ for i in training_examples]
+                ) 
+                
+                nprompt = base_prompt + textwrap.dedent(
+                    f"""
+                    {training_examples_text}
+                    
+                    target
+                    INPUT: {X[i]}
+                    LABEL:
+                    """
+                )
+                augmented_prompts.append(nprompt)
+            else:
+                augmented_prompts = [base_prompt + textwrap.dedent(
+                    f"""
+                    target
+                    INPUT: {X[i]}
+                    LABEL:
+                    """
+                ) for i in range(len(X))]
+
+        generated_text = self.pretrained_text_generator.run(augmented_prompts)
+        labels_pattern = "|".join(map(re.escape, self.unique_labels))
+        pattern = f"{labels_pattern}"
+
+        results = []
+        for text in generated_text:
+            matches = re.findall(pattern, text, re.DOTALL)
+            if matches:
+                results.append(matches[-1])
+            else:
+                results.append(np.random.choice(self.unique_labels))
+        return results
+
+    def run(
+        self, X: Seq[Sentence], y: Supervised[VectorCategorical]
+    ) -> VectorCategorical:
+        return TransformersWrapper.run(self, X, y)
 
 @nice_repr
 class DocumentEmbedder(AlgorithmBase):
@@ -339,3 +477,110 @@ class DocumentEmbedder(AlgorithmBase):
                 f"Unknown normalization strategy: {self.normalization_strategy}"
             )
         return normalized_embeddings.to("cpu")
+
+@nice_repr
+class SequenceEmbeddingClassifier(nn.Module):
+    def __init__(self, pretrained_embedder: PretrainedSequenceEmbedding, num_labels):
+        super(SequenceEmbeddingClassifier, self).__init__()
+        self.pretrained_embedder = pretrained_embedder
+        self.device = (
+            torch.device("cuda:0")
+            if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
+            else torch.device("cpu")
+        )
+        
+        self.classifier =  nn.Sequential(
+            nn.Linear(pretrained_embedder.embedding_dim, pretrained_embedder.embedding_dim),
+            nn.Linear(pretrained_embedder.embedding_dim, num_labels),
+            nn.Softmax()
+        ).to(self.device)
+
+    def forward(self, input_sentences):
+        embeddings = self.pretrained_embedder.run_unbatched(input_sentences).to(self.device)
+        logits = self.classifier(embeddings)
+        return logits
+    
+@nice_repr
+class FullFineTuner(AlgorithmBase):
+    def __init__(
+        self, 
+        pretrained_model_seq_embedder: algorithm(Seq[Sentence], MatrixContinuousDense, exceptions=["DocumentEmbedder"]),   # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
+        epochs:DiscreteValue(1, 10), # type: ignore
+    ):
+        self.pretrained_model_seq_embedder = pretrained_model_seq_embedder
+        self.learning_rate = 1e-5#learning_rate
+        self.epochs = 5#epochs
+        self.batch_size = 256#pretrained_model_seq_embedder.batch_size
+        self.model = None
+        self._mode = "train"
+        self.device = (
+            torch.device("cuda:0")
+            if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
+            else torch.device("cpu")
+        )
+        
+    def train(self):
+        self._mode = "train"
+
+    def eval(self):
+        self._mode = "eval"
+        
+    def init_model(self, num_labels):
+        self.pretrained_model_seq_embedder.init_model()
+        self.model = SequenceEmbeddingClassifier(self.pretrained_model_seq_embedder, num_labels).to(self.device)
+
+    def finetune(self, X, y):
+        num_labels = len(np.unique(y))
+        self.init_model(num_labels)
+        
+        dataset = SentenceDataset(X, y, self.pretrained_model_seq_embedder.tokenizer, max_length=512) #for BERT-like models
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
+        optimizer = AdamW(self.pretrained_model_seq_embedder.model.parameters(), lr=self.learning_rate)
+        total_steps = len(dataloader) * self.epochs
+        scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+
+        self.model.train()
+        for epoch in range(self.epochs):
+            for batch in tqdm(dataloader):
+                inputs = batch['data']
+                labels = batch['labels']
+                
+                self.model.zero_grad()
+                
+                logits = self.model(inputs)
+                
+                loss_fct = nn.CrossEntropyLoss()
+                loss = loss_fct(logits.view(-1, num_labels), labels.view(-1))
+                
+                loss.backward()
+                optimizer.step()
+                scheduler.step()
+
+            print(f"Finished Epoch {epoch+1}, Loss: {loss.item()}")
+        return y
+
+    def predict(self, X):
+        self.model.eval()
+        
+        dataset = SentenceDataset(X, None, self.pretrained_model_seq_embedder.tokenizer, max_length=512)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
+        
+        predictions = []
+        with torch.no_grad():
+            for batch in tqdm(dataloader):
+                inputs = batch['data']
+                logits = self.model(inputs)
+                predictions.extend(logits.argmax(dim=1).tolist())
+        
+        print("predicted", np.unique(predictions, return_counts=True))
+        return predictions
+
+    def run(self, X: Seq[Sentence], y: Supervised[VectorDiscrete]) -> VectorDiscrete:
+        if (self._mode == "train"):
+            return self.finetune(X, y)
+        else:
+            return self.predict(X)
+
+    
