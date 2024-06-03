@@ -4,14 +4,14 @@ from huggingface_hub import HfApi, ModelFilter
 import re
 from enum import Enum
 from tqdm import tqdm
-
 import requests
+from torch.utils.data import Dataset, DataLoader
+import torch
 
 class TASK_ALIASES(Enum):
     TextClassification = "text-classification"
     TokenClassification = "token-classification"
     WordEmbeddings = "word-embeddings"
-    SeqEmbeddings = "sequence-embeddings"
     TextGeneration = "text-generation"
 
 class DOWNLOAD_MODE(Enum):
@@ -30,46 +30,8 @@ TASK_TO_BASE_MODELS = {
     TASK_ALIASES.WordEmbeddings: [
         # BERT
         "bert-base-uncased",
-        "bert-large-uncased",
         "bert-base-cased",
-        "bert-large-cased",
-        "bert-base-multilingual-uncased",
-        "bert-base-multilingual-cased",
-        
-        # DistilBERT
-        "distilbert-base-uncased",
-        "distilbert-base-cased",
-        "distilbert-base-multilingual-cased",
-        
-        # RoBERTa
-        "roberta-base",
-        "roberta-large",
-        
-        # Deberta
-        "microsoft/deberta-v3-base",
-        "microsoft/deberta-base",
-        "microsoft/mdeberta-v3-base",
-        
-        # ALBERT
-        "albert-base-v1",
-        "albert-large-v1",
-        "albert-xlarge-v1",
-        "albert-xxlarge-v1",
-        
-        # ELECTRA
-        "google/electra-small-discriminator",
-        "google/electra-base-discriminator",
-        "google/electra-large-discriminator",
-        
-        # XLM-RoBERTa
-        "xlm-roberta-base",
-        "xlm-roberta-large",
-    ],
-    TASK_ALIASES.SeqEmbeddings: [
-        # BERT
-        "bert-base-uncased",
         "bert-large-uncased",
-        "bert-base-cased",
         "bert-large-cased",
         "bert-base-multilingual-uncased",
         "bert-base-multilingual-cased",
@@ -188,8 +150,6 @@ def get_models_info(target_task, max_amount, min_likes=None, min_downloads=None,
     # regex for detecting partially trained models
     pattern = r"train-\d+"
     
-    print("here")
-
     # Get model metadata
     model_info = []
     current = 0
@@ -287,3 +247,27 @@ def convert_string_to_number(s):
         return float(s[:-1]) * units[s[-1]]
     else:
         return float(s)
+
+
+
+class SimpleTextDataset(Dataset):
+    def __init__(self, texts, labels, tokenizer, max_length):
+        self.texts = texts
+        self.labels = labels
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        text = self.texts[idx]
+        encoding = self.tokenizer(text, truncation=True, padding='max_length', max_length=self.max_length, return_tensors='pt')
+        encoding = {key: val.squeeze() for key, val in encoding.items()}
+
+        # Only add 'labels' if labels are provided
+        if self.labels is not None:
+            label = self.labels[idx]
+            encoding['labels'] = torch.tensor(label, dtype=torch.long)
+
+        return encoding
