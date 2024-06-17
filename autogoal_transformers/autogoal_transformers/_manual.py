@@ -30,6 +30,7 @@ from torch.utils.data import DataLoader, Dataset
 from torch.optim import AdamW
 from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_constant_schedule_with_warmup, AutoTokenizer, AutoModelForSequenceClassification
 from autogoal_transformers._utils import SimpleTextDataset
+from peft import get_peft_model, LoraConfig, TaskType
 
 @nice_repr
 class SeqPretrainedTokenClassifier(AlgorithmBase):
@@ -458,46 +459,6 @@ class FullFineTunerBase(AlgorithmBase):
         self._mode = "eval"
         
     def init_model(self, num_labels):
-        pass
-
-    def finetune(self, X, y):
-        pass
-
-    def predict(self, X):
-        pass
-
-@nice_repr
-class   FullFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
-    def __init__(
-        self, 
-        word_embedding_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
-        batch_size: DiscreteValue(32, 1024),  # type: ignore
-        max_length: DiscreteValue(32, 512), # type: ignore
-        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
-        epochs: DiscreteValue(1, 5), # type: ignore
-        warmup_steps: DiscreteValue(0, 2000), # type: ignore
-        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
-        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5), # type: ignore
-        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
-        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
-        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
-    ):
-        self.model = None
-        self.tokenizer = None
-        self.word_embedding_model = word_embedding_model
-        self.batch_size = batch_size
-        self.max_length = max_length
-        self.learning_rate = learning_rate
-        self.epochs = 1#epochs
-        self.warmup_steps = warmup_steps
-        self.weight_decay = weight_decay
-        self.dropout_rate = dropout_rate
-        self.optimizer = optimizer
-        self.gradient_accumulation_steps = gradient_accumulation_steps
-        self.lr_scheduler = lr_scheduler
-        super().__init__()
-        
-    def init_model(self, num_labels):
         self.word_embedding_model.init_model(
             transformer_model_cls=AutoModelForSequenceClassification, 
             tokenizer_cls=AutoTokenizer, 
@@ -531,7 +492,60 @@ class   FullFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
         for module in self.model.modules():
             if isinstance(module, nn.Dropout):
                 module.p = self.dropout_rate
+                
+    def finetune(self, X, y):
+        pass
 
+    def predict(self, X):
+        dataset = SimpleTextDataset(X, None, self.tokenizer, max_length=self.max_length)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
+        self.model.eval()
+        preds = []
+        with torch.no_grad():
+            for batch in tqdm(dataloader, desc="Evaluating"):
+                inputs = {key: val.to(self.device) for key, val in batch.items() if key != 'labels'}
+                outputs = self.model(**inputs)
+                logits = outputs.logits
+                preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
+        return preds
+    
+    def run(self, X: Seq[Sentence], y: Supervised[VectorDiscrete]) -> VectorDiscrete:
+        if (self._mode == "train"):
+            return self.finetune(X, y)
+        else:
+            return self.predict(X)
+
+@nice_repr
+class FullFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
+    def __init__(
+        self, 
+        word_embedding_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
+        batch_size: DiscreteValue(32, 512),  # type: ignore
+        max_length: DiscreteValue(32, 512), # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
+        epochs: DiscreteValue(1, 5), # type: ignore
+        warmup_steps: DiscreteValue(0, 2000), # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
+        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5), # type: ignore
+        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
+        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
+        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+    ):
+        self.model = None
+        self.tokenizer = None
+        self.word_embedding_model = word_embedding_model
+        self.batch_size = batch_size
+        self.max_length = max_length
+        self.learning_rate = learning_rate
+        self.epochs = epochs
+        self.warmup_steps = warmup_steps
+        self.weight_decay = weight_decay
+        self.dropout_rate = dropout_rate
+        self.optimizer = optimizer
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.lr_scheduler = lr_scheduler
+        super().__init__()
+        
     def finetune(self, X, y):
         num_labels = len(np.unique(y))
         self.init_model(num_labels)
@@ -566,21 +580,204 @@ class   FullFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
 
         return y
 
-    def predict(self, X):
-        dataset = SimpleTextDataset(X, None, self.tokenizer, max_length=self.max_length)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
-        self.model.eval()
-        preds = []
-        with torch.no_grad():
-            for batch in tqdm(dataloader, desc="Evaluating"):
-                inputs = {key: val.to(self.device) for key, val in batch.items() if key != 'labels'}
-                outputs = self.model(**inputs)
-                logits = outputs.logits
-                preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
-        return preds
+@nice_repr
+class PartialFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
+    def __init__(
+        self, 
+        word_embedding_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
+        num_trainable_layers: DiscreteValue(0, 50),  # type: ignore
+        batch_size: DiscreteValue(32, 512),  # type: ignore
+        max_length: DiscreteValue(32, 512), # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
+        epochs: DiscreteValue(1, 5), # type: ignore
+        warmup_steps: DiscreteValue(0, 2000), # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
+        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5), # type: ignore
+        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
+        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
+        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+    ):
+        self.model = None
+        self.tokenizer = None
+        self.word_embedding_model = word_embedding_model
+        self.num_trainable_layers = num_trainable_layers
+        self.batch_size = batch_size
+        self.max_length = max_length
+        self.learning_rate = learning_rate
+        self.epochs = epochs
+        self.warmup_steps = warmup_steps
+        self.weight_decay = weight_decay
+        self.dropout_rate = dropout_rate
+        self.optimizer = optimizer
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.lr_scheduler = lr_scheduler
+        super().__init__()
+        
+    def count_trainable_parameters(self):
+        return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
 
-    def run(self, X: Seq[Sentence], y: Supervised[VectorDiscrete]) -> VectorDiscrete:
-        if (self._mode == "train"):
-            return self.finetune(X, y)
-        else:
-            return self.predict(X)
+    def set_freezed_layers(self):
+        # Unfreeze the specified number of layers from end to start
+        layer_groups = self.group_layers_by_number()
+        
+        # Freeze all layers initially
+        for param in self.model.parameters():
+            param.requires_grad = False
+        
+        # Unfreeze classifier layers and optionally other layers
+        classifier_params = [p for n, p in self.model.named_parameters() if 'classifier' in n]
+        for param in classifier_params:
+            param.requires_grad = True
+
+        # Unfreeze additional layers based on the number of layers to train
+        layers_unfreezed = 0
+        total_layers = len(layer_groups)
+        for layer_num in sorted(layer_groups.keys(), reverse=True):
+            if layers_unfreezed < self.num_trainable_layers:
+                for param in layer_groups[layer_num]:
+                    param.requires_grad = True
+                layers_unfreezed += 1
+            else:
+                break
+        
+        # Optionally handle embeddings and other non-numbered layers
+        if layers_unfreezed < self.num_trainable_layers:
+            non_layer_params = [p for n, p in self.model.named_parameters() if not re.search(r'\.layer\.\d+\.', n) and 'classifier' not in n]
+            for param in non_layer_params:
+                param.requires_grad = True
+
+    def group_layers_by_number(self):
+        # Group parameters by their layer number
+        layer_groups = {}
+        pattern = re.compile(r'\.layer\.(\d+)\.')
+        for name, param in self.model.named_parameters():
+            match = pattern.search(name)
+            if match:
+                layer_num = int(match.group(1))
+                if layer_num not in layer_groups:
+                    layer_groups[layer_num] = []
+                layer_groups[layer_num].append(param)
+        return layer_groups
+
+    def finetune(self, X, y):
+        num_labels = len(np.unique(y))
+        self.init_model(num_labels)
+        self.setup_dropout()
+        self.set_freezed_layers()
+        
+        dataset = SimpleTextDataset(X, y, self.tokenizer, max_length=self.max_length) #for BERT-like models
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
+        optimizer = self.setup_optimizer()#AdamW(self.pretrained_model_seq_embedder.model.parameters(), lr=self.learning_rate)
+        total_steps = len(dataloader) * self.epochs
+        scheduler = self.setup_scheduler(optimizer, total_steps)#get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+
+        print(f"trainable parameters: {self.count_trainable_parameters()}")
+
+        for epoch in range(self.epochs):
+            self.model.train()
+            total_loss = 0
+            for step, batch in enumerate(tqdm(dataloader, desc="Training")):
+                optimizer.zero_grad()
+                inputs = {key: val.to(self.device) for key, val in batch.items() if key != 'labels'}
+                labels = batch['labels'].to(self.device)
+                outputs = self.model(**inputs, labels=labels)
+                loss = outputs.loss / self.gradient_accumulation_steps
+                loss.backward()
+                
+                if (step + 1) % self.gradient_accumulation_steps == 0:
+                    optimizer.step()
+                    scheduler.step()
+                    optimizer.zero_grad()
+
+                total_loss += loss.item()
+            
+            print(f"Epoch {epoch+1}/{self.epochs}, Training Loss: {total_loss / len(dataloader)}")
+        return y
+    
+@nice_repr
+class LORAFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
+    def __init__(
+        self, 
+        word_embedding_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
+        lora_r: CategoricalValue(2, 4, 8, 16), # type: ignore
+        lora_alpha: CategoricalValue(8, 16, 32, 64), # type: ignore
+        lora_dropout: CategoricalValue(0.0, 0.1, 0.2, 0.3), # type: ignore
+        lora_bias: CategoricalValue("none", "all"), # type: ignore
+        batch_size: DiscreteValue(32, 512),  # type: ignore
+        max_length: DiscreteValue(32, 512), # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
+        epochs: DiscreteValue(1, 10), # type: ignore
+        warmup_steps: DiscreteValue(0, 2000), # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
+        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
+        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
+        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+    ):
+        self.model = None
+        self.tokenizer = None
+        self.word_embedding_model = word_embedding_model
+        self.lora_r = lora_r
+        self.lora_alpha = lora_alpha
+        self.lora_dropout = lora_dropout
+        self.lora_bias = lora_bias
+        self.batch_size = batch_size
+        self.max_length = max_length
+        self.learning_rate = learning_rate
+        self.epochs = epochs
+        self.warmup_steps = warmup_steps
+        self.weight_decay = weight_decay
+        self.optimizer = optimizer
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.lr_scheduler = lr_scheduler
+        super().__init__()
+        
+    def set_lora_config(self):
+        lora_config = LoraConfig(
+            task_type=TaskType.SEQ_CLS,
+            r=self.lora_r,
+            lora_alpha=self.lora_alpha,
+            lora_dropout=self.lora_dropout, 
+            bias=self.lora_bias,
+            modules_to_save=["classifier"],
+        )
+        self.model = get_peft_model(self.model, lora_config)
+        self.model.print_trainable_parameters()
+    
+    def print_model_layers(self):
+        for name, param in self.model.named_parameters():
+            print(name, param.shape)    
+    
+    def finetune(self, X, y):
+        num_labels = len(np.unique(y))
+        self.init_model(num_labels)
+        self.set_lora_config()
+        
+        dataset = SimpleTextDataset(X, y, self.tokenizer, max_length=self.max_length) #for BERT-like models
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
+        optimizer = self.setup_optimizer()#AdamW(self.pretrained_model_seq_embedder.model.parameters(), lr=self.learning_rate)
+        total_steps = len(dataloader) * self.epochs
+        scheduler = self.setup_scheduler(optimizer, total_steps)#get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+
+        for epoch in range(self.epochs):
+            self.model.train()
+            total_loss = 0
+            for step, batch in enumerate(tqdm(dataloader, desc="Training")):
+                optimizer.zero_grad()
+                inputs = {key: val.to(self.device) for key, val in batch.items() if key != 'labels'}
+                labels = batch['labels'].to(self.device)
+                outputs = self.model(**inputs, labels=labels)
+                loss = outputs.loss / self.gradient_accumulation_steps
+                loss.backward()
+                
+                if (step + 1) % self.gradient_accumulation_steps == 0:
+                    optimizer.step()
+                    scheduler.step()
+                    optimizer.zero_grad()
+
+                total_loss += loss.item()
+            
+            print(f"Epoch {epoch+1}/{self.epochs}, Training Loss: {total_loss / len(dataloader)}")
+
+        return y

@@ -1,4 +1,5 @@
 import asyncio
+import statistics
 import time
 import textwrap
 
@@ -86,17 +87,28 @@ class TelegramLogger(Logger):
         else:
             self._send_new(textwrap.dedent(text))
         
-    def eval_solution(self, solution, fitness):
+    def eval_solution(self, solution, fitness, observations):
         self.progress += 1
         self._send_status()
         
         if ("inf" in str(fitness).lower()):
             return
-            
+        
+        if not observations is None:
+            train_m_time = statistics.mean(observations["time"]["train"])
+            valid_m_time = statistics.mean(observations["time"]["valid"])
+            train_m_time_value = (train_m_time, "seconds") if train_m_time < 12000 else (train_m_time/60, "minutes")
+            valid_m_time_value = (valid_m_time, "seconds") if valid_m_time < 12000 else (valid_m_time/60, "minutes")
+        
+        time_obs_message = f"train mean time: {train_m_time_value[0]} {train_m_time_value[1]}\nvalid mean time: {valid_m_time_value[0]} {valid_m_time_value[1]}" if not observations is None else ""
+        other_obs_message = [f"Mean {label}: {value}" for label,value in observations.items() if label != 'time'] if not observations is None else ""
         
         text = f"""
         Success:
         <u>{fitness}</u>
+        Observations:
+        {time_obs_message}
+        {other_obs_message}
         """
         
         if self.last_solution_message:
