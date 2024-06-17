@@ -101,7 +101,7 @@ class TelegramLogger(Logger):
             valid_m_time_value = (valid_m_time, "seconds") if valid_m_time < 12000 else (valid_m_time/60, "minutes")
         
         time_obs_message = f"train mean time: {train_m_time_value[0]} {train_m_time_value[1]}\nvalid mean time: {valid_m_time_value[0]} {valid_m_time_value[1]}" if not observations is None else ""
-        other_obs_message = [f"Mean {label}: {value}" for label,value in observations.items() if label != 'time'] if not observations is None else ""
+        other_obs_message = [f"Mean {label}: {value}" for label,value in observations.items() if label != 'time' and label != 'resource_stats'] if not observations is None else ""
         
         text = f"""
         Success:
