@@ -7,7 +7,8 @@ from tqdm import tqdm
 import requests
 from torch.utils.data import Dataset, DataLoader
 import torch
-
+import os
+    
 class TASK_ALIASES(Enum):
     TextClassification = "text-classification"
     TokenClassification = "token-classification"
@@ -80,16 +81,33 @@ TASK_TO_BASE_MODELS = {
         "google/flan-t5-xl",
         
         # gemma
-        "google/gemma-7b-it",
-        "google/gemma-2b-it",
-        "google/gemma-7b",
-        "google/gemma-2b",
+        # "google/gemma-7b-it",
+        # "google/gemma-2b-it",
+        # "google/gemma-7b",
+        # "google/gemma-2b",
         
         # GPT-2
         "gpt2",
         "gpt2-medium",
         "gpt2-large",
         "gpt2-xl",
+        
+        # BART
+        "facebook/bart-base",
+        "facebook/bart-large",
+        
+        # PHI
+        "microsoft/Phi-3-small-8k-instruct",
+        "microsoft/Phi-3-mini-4k-instruct",
+        "microsoft/Phi-3-medium-4k-instruct",
+        "microsoft/phi-2",
+        "microsoft/phi-1_5",
+        
+        # Mistral
+        "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        "mistralai/Mistral-7B-v0.1",
+        "mistralai/Mistral-7B-Instruct-v0.2",
+        "mistralai/Mistral-7B-Instruct-v0.1"
     ]
 }
 
@@ -138,7 +156,7 @@ def get_hf_models_sorted_by_likes(target_task, min_likes, min_downloads):
         page += 1
 
 def get_model_config(modelId):
-    config = AutoConfig.from_pretrained(modelId)
+    config = AutoConfig.from_pretrained(modelId, use_auth_token=os.getenv('HUGGINGFACE_HUB_TOKEN'), trust_remote_code=True)
     return config
 
 def get_models_info(target_task, max_amount, min_likes=None, min_downloads=None, download_mode=DOWNLOAD_MODE.HUB):
@@ -200,7 +218,7 @@ def get_models_info(target_task, max_amount, min_likes=None, min_downloads=None,
             model_info.append(info)
             current += 1
         except Exception as e:
-            pass
+           print(e)
     return model_info
 
 def download_models_info(
@@ -247,7 +265,6 @@ def convert_string_to_number(s):
         return float(s[:-1]) * units[s[-1]]
     else:
         return float(s)
-
 
 
 class SimpleTextDataset(Dataset):

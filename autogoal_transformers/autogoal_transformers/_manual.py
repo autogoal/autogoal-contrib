@@ -31,6 +31,7 @@ from torch.optim import AdamW
 from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_constant_schedule_with_warmup, AutoTokenizer, AutoModelForSequenceClassification
 from autogoal_transformers._utils import SimpleTextDataset
 from peft import get_peft_model, LoraConfig, TaskType
+import os
 
 @nice_repr
 class SeqPretrainedTokenClassifier(AlgorithmBase):
@@ -458,17 +459,23 @@ class FullFineTunerBase(AlgorithmBase):
     def eval(self):
         self._mode = "eval"
         
-    def init_model(self, num_labels):
-        self.word_embedding_model.init_model(
+    def init_model(self, model, num_labels):
+        model.init_model(
             transformer_model_cls=AutoModelForSequenceClassification, 
             tokenizer_cls=AutoTokenizer, 
             transformer_cls_kwargs={
-                'num_labels':num_labels
+                'num_labels':num_labels,
+                'trust_remote_code': True
             }
         )
-        self.model = self.word_embedding_model.model.to(self.device)
-        self.tokenizer = self.word_embedding_model.tokenizer
-    
+        self.model = model.model.to(self.device)
+        self.tokenizer = model.tokenizer
+        
+        if self.tokenizer.pad_token is None:
+            print("No padding token. Adding EOS as PAD token.")
+            self.tokenizer.pad_token = self.tokenizer.eos_token  # Setting pad_token as eos_token for generative models
+            self.model.config.pad_token_id = self.tokenizer.pad_token
+            
     def setup_optimizer(self):
         # Set up the optimizer
         if self.optimizer == 'adamw':
@@ -516,10 +523,10 @@ class FullFineTunerBase(AlgorithmBase):
             return self.predict(X)
 
 @nice_repr
-class FullFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
+class FullFineTunerTextTransformerClassifier(FullFineTunerBase):
     def __init__(
         self, 
-        word_embedding_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
+        inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
         batch_size: DiscreteValue(32, 512),  # type: ignore
         max_length: DiscreteValue(32, 512), # type: ignore
         learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
@@ -533,7 +540,7 @@ class FullFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
     ):
         self.model = None
         self.tokenizer = None
-        self.word_embedding_model = word_embedding_model
+        self.inner_model = inner_model
         self.batch_size = batch_size
         self.max_length = max_length
         self.learning_rate = learning_rate
@@ -548,7 +555,7 @@ class FullFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
         
     def finetune(self, X, y):
         num_labels = len(np.unique(y))
-        self.init_model(num_labels)
+        self.init_model(self.inner_model, num_labels)
         self.setup_dropout()
         
         dataset = SimpleTextDataset(X, y, self.tokenizer, max_length=self.max_length) #for BERT-like models
@@ -581,10 +588,10 @@ class FullFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
         return y
 
 @nice_repr
-class PartialFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
+class PartialFineTunerTextTransformerClassifier(FullFineTunerBase):
     def __init__(
         self, 
-        word_embedding_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
+        inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
         num_trainable_layers: DiscreteValue(0, 50),  # type: ignore
         batch_size: DiscreteValue(32, 512),  # type: ignore
         max_length: DiscreteValue(32, 512), # type: ignore
@@ -599,7 +606,7 @@ class PartialFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
     ):
         self.model = None
         self.tokenizer = None
-        self.word_embedding_model = word_embedding_model
+        self.inner_model = inner_model
         self.num_trainable_layers = num_trainable_layers
         self.batch_size = batch_size
         self.max_length = max_length
@@ -661,7 +668,7 @@ class PartialFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
 
     def finetune(self, X, y):
         num_labels = len(np.unique(y))
-        self.init_model(num_labels)
+        self.init_model(self.inner_model, num_labels)
         self.setup_dropout()
         self.set_freezed_layers()
         
@@ -696,10 +703,10 @@ class PartialFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
         return y
     
 @nice_repr
-class LORAFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
+class LORAFineTunerTextTransformerClassifier(FullFineTunerBase):
     def __init__(
         self, 
-        word_embedding_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
+        inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
         lora_r: CategoricalValue(2, 4, 8, 16), # type: ignore
         lora_alpha: CategoricalValue(8, 16, 32, 64), # type: ignore
         lora_dropout: CategoricalValue(0.0, 0.1, 0.2, 0.3), # type: ignore
@@ -716,7 +723,7 @@ class LORAFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
     ):
         self.model = None
         self.tokenizer = None
-        self.word_embedding_model = word_embedding_model
+        self.inner_model = inner_model
         self.lora_r = lora_r
         self.lora_alpha = lora_alpha
         self.lora_dropout = lora_dropout
@@ -750,7 +757,7 @@ class LORAFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
     
     def finetune(self, X, y):
         num_labels = len(np.unique(y))
-        self.init_model(num_labels)
+        self.init_model(self.inner_model, num_labels)
         self.set_lora_config()
         
         dataset = SimpleTextDataset(X, y, self.tokenizer, max_length=self.max_length) #for BERT-like models
@@ -781,3 +788,132 @@ class LORAFineTunerEmbedderTransformerClassifier(FullFineTunerBase):
             print(f"Epoch {epoch+1}/{self.epochs}, Training Loss: {total_loss / len(dataloader)}")
 
         return y
+    
+@nice_repr
+class FullFineTunerGenerativeTransformerClassifier(FullFineTunerTextTransformerClassifier):
+    def __init__(
+        self, 
+        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
+        batch_size: DiscreteValue(32, 512),  # type: ignore
+        max_length: DiscreteValue(32, 512), # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
+        epochs: DiscreteValue(1, 5), # type: ignore
+        warmup_steps: DiscreteValue(0, 2000), # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
+        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5), # type: ignore
+        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
+        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
+        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+    ):
+        super().__init__(
+            inner_model, 
+            batch_size, 
+            max_length, 
+            learning_rate, 
+            epochs, 
+            warmup_steps, 
+            weight_decay, 
+            dropout_rate, 
+            optimizer, 
+            gradient_accumulation_steps, 
+            lr_scheduler)
+
+@nice_repr
+class PartialFineTunerGenerativeTransformerClassifier(PartialFineTunerTextTransformerClassifier):
+    def __init__(
+        self, 
+        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
+        num_trainable_layers: DiscreteValue(0, 50),  # type: ignore
+        batch_size: DiscreteValue(32, 512),  # type: ignore
+        max_length: DiscreteValue(32, 512), # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
+        epochs: DiscreteValue(1, 5), # type: ignore
+        warmup_steps: DiscreteValue(0, 2000), # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
+        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5), # type: ignore
+        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
+        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
+        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+    ):
+        super().__init__(
+            inner_model,
+            num_trainable_layers,
+            batch_size, 
+            max_length, 
+            learning_rate, 
+            epochs, 
+            warmup_steps, 
+            weight_decay, 
+            dropout_rate, 
+            optimizer, 
+            gradient_accumulation_steps, 
+            lr_scheduler)
+        
+@nice_repr
+class LORAFineTunerGenerativeTransformerClassifier(LORAFineTunerTextTransformerClassifier):
+    def __init__(
+        self, 
+        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
+        lora_r: CategoricalValue(2, 4, 8, 16), # type: ignore
+        lora_alpha: CategoricalValue(8, 16, 32, 64), # type: ignore
+        lora_dropout: CategoricalValue(0.0, 0.1, 0.2, 0.3), # type: ignore
+        lora_bias: CategoricalValue("none", "all"), # type: ignore
+        batch_size: DiscreteValue(32, 512),  # type: ignore
+        max_length: DiscreteValue(32, 512), # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
+        epochs: DiscreteValue(1, 10), # type: ignore
+        warmup_steps: DiscreteValue(0, 2000), # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
+        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
+        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
+        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+    ):
+        super().__init__(
+            inner_model,
+            lora_r,
+            lora_alpha,
+            lora_dropout,
+            lora_bias,
+            batch_size, 
+            max_length, 
+            learning_rate, 
+            epochs, 
+            warmup_steps, 
+            weight_decay, 
+            optimizer, 
+            gradient_accumulation_steps, 
+            lr_scheduler)
+
+
+    def __init__(
+        self, 
+        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
+        lora_r: CategoricalValue(2, 4, 8, 16), # type: ignore
+        lora_alpha: CategoricalValue(8, 16, 32, 64), # type: ignore
+        lora_dropout: CategoricalValue(0.0, 0.1, 0.2, 0.3), # type: ignore
+        lora_bias: CategoricalValue("none", "all"), # type: ignore
+        batch_size: DiscreteValue(32, 512),  # type: ignore
+        max_length: DiscreteValue(32, 512), # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
+        epochs: DiscreteValue(1, 10), # type: ignore
+        warmup_steps: DiscreteValue(0, 2000), # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
+        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
+        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
+        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+    ):
+        super().__init__(
+            inner_model,
+            lora_r,
+            lora_alpha,
+            lora_dropout,
+            lora_bias,
+            batch_size, 
+            max_length, 
+            learning_rate, 
+            epochs, 
+            warmup_steps, 
+            weight_decay, 
+            optimizer, 
+            gradient_accumulation_steps, 
+            lr_scheduler)

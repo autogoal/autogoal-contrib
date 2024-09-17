@@ -107,7 +107,7 @@ class TransformersWrapper(AlgorithmBase):
         """
         Downloads the pretrained model and tokenizer.
         """
-        AutoModel.from_pretrained(cls.name)
+        AutoModel.from_pretrained(cls.name, trust_remote_code=True)
         AutoTokenizer.from_pretrained(cls.name)
 
     def init_model(self, model_name=None, transformer_model_cls = None, tokenizer_cls = None, transformer_cls_kwargs = None, tokenizer_cls_kwargs = None):
@@ -143,7 +143,6 @@ class TransformersWrapper(AlgorithmBase):
             except Exception as e:
                 raise e
 
-
 class WordEmbeddingTransformer(TransformersWrapper):
     def __init__(
         self,
@@ -157,6 +156,18 @@ class WordEmbeddingTransformer(TransformersWrapper):
     def run(self, input: Word) -> VectorContinuous:
         pass
 
+class TextGenerationTransformer(TransformersWrapper):
+    def __init__(
+        self,
+        *,
+        verbose=True,
+    ):
+        self.verbose = verbose
+        self.model = None
+        super().__init__()
+        
+    def run(self, input: Prompt) -> GeneratedText:
+        pass
 
 class PretrainedWordEmbedding(TransformersWrapper):
     def __init__(
@@ -222,7 +233,6 @@ class PretrainedWordEmbedding(TransformersWrapper):
 
         matrix = np.vstack(matrix)
         return matrix
-
 
 class PretrainedSequenceEmbedding(TransformersWrapper):
     def __init__(
@@ -364,7 +374,6 @@ class PretrainedSequenceEmbedding(TransformersWrapper):
                 f"Unknown normalization strategy: {self.normalization_strategy}"
             )
         return normalized_embeddings.to("cpu")
-
 
 class PretrainedTextGeneration(TransformersWrapper):
     def __init__(
@@ -524,7 +533,6 @@ class PretrainedTextGeneration(TransformersWrapper):
         torch.cuda.empty_cache()
         return generated_texts
 
-
 class PretrainedTextClassifier(TransformersWrapper):
     """
     A class used to represent a Pretrained Text Classifier which is a wrapper around the Transformers library.
@@ -654,7 +662,6 @@ class PretrainedTextClassifier(TransformersWrapper):
     ) -> VectorCategorical:
         return TransformersWrapper.run(self, X, y)
 
-
 class PretrainedZeroShotClassifier(TransformersWrapper):
     def __init__(self, batch_size, verbose=False) -> None:
         super().__init__()
@@ -739,7 +746,6 @@ class PretrainedZeroShotClassifier(TransformersWrapper):
         self, X: Seq[Sentence], y: Supervised[VectorCategorical]
     ) -> VectorCategorical:
         return TransformersWrapper.run(self, X, y)
-
 
 class PretrainedTokenClassifier(TransformersWrapper):
     def __init__(self, verbose=True) -> None:
@@ -883,7 +889,7 @@ TASK_TO_ALGORITHM_MARK = {
 
 TASK_TO_WRAPPER_NAME = {
     TASK_ALIASES.WordEmbeddings: WordEmbeddingTransformer.__name__,
-    TASK_ALIASES.TextGeneration: PretrainedTextGeneration.__name__,
+    TASK_ALIASES.TextGeneration: TextGenerationTransformer.__name__,
     TASK_ALIASES.TextClassification: PretrainedTextClassifier.__name__,
     TASK_ALIASES.TokenClassification: PretrainedTokenClassifier.__name__,
 }
@@ -963,23 +969,7 @@ def _write_class(item, fp, target_task):
         num_attention_heads = {item['metadata']['num_attention_heads']}
     """
 
-    if target_task == TASK_ALIASES.TextGeneration:
-        class_init = f"""
-        def __init__(
-            self, 
-            batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048),  # type: ignore
-            max_gen_seq_length: DiscreteValue(16, 512),  # type: ignore
-            temperature: ContinuousValue(0.01, 1.99),  # type: ignore
-        ):
-            {base_class}.__init__(
-                self, 
-                batch_size=batch_size, 
-                max_gen_seq_length=max_gen_seq_length,
-                temperature=temperature
-            )
-        """
-    else:
-        class_init = f"""
+    class_init = f"""
         def __init__(
             self, 
         ):
@@ -994,6 +984,10 @@ def _write_class(item, fp, target_task):
     print("Successfully generated" + class_name)
     fp.flush()
 
+
+                # batch_size=batch_size, 
+                # max_gen_seq_length=max_gen_seq_length,
+                # temperature=temperature
 
 if __name__ == "__main__":
     build_transformers_wrappers(
