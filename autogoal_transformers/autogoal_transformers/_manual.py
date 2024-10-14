@@ -33,6 +33,8 @@ from autogoal_transformers._utils import SimpleTextDataset
 from peft import get_peft_model, LoraConfig, TaskType
 import os
 
+import transformers
+
 @nice_repr
 class SeqPretrainedTokenClassifier(AlgorithmBase):
     def __init__(
@@ -742,6 +744,7 @@ class LoraLLMEmbeddingClassifier(FullFineTunerBase):
     def set_lora_config(self):
         lora_config = LoraConfig(
             task_type=TaskType.SEQ_CLS,
+            target_modules=self.get_specific_layer_names(),
             r=self.lora_r,
             lora_alpha=self.lora_alpha,
             lora_dropout=self.lora_dropout, 
@@ -755,6 +758,20 @@ class LoraLLMEmbeddingClassifier(FullFineTunerBase):
         for name, param in self.model.named_parameters():
             print(name, param.shape)    
     
+    def get_specific_layer_names(self):
+        model = self.model
+        # Create a list to store the layer names
+        layer_names = []
+        # Recursively visit all modules and submodules
+        for name, module in model.named_modules():
+            # Check if the module is an instance of the specified layers
+            if isinstance(module, (torch.nn.Linear, torch.nn.Embedding, torch.nn.Conv2d, transformers.pytorch_utils.Conv1D)):
+                names = name.split(".")
+                # model-specific
+                layer_names.append(names[0] if len(names) == 1 else names[-1])
+        
+        return layer_names
+
     def finetune(self, X, y):
         num_labels = len(np.unique(y))
         self.init_model(self.inner_model, num_labels)
