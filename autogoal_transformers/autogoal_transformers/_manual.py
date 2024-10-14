@@ -516,14 +516,14 @@ class FullFineTunerBase(AlgorithmBase):
                 preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
         return preds
     
-    def run(self, X: Seq[Sentence], y: Supervised[VectorDiscrete]) -> VectorDiscrete:
+    def run(self, X: Seq[Sentence], y: Supervised[VectorDiscrete]) -> VectorDiscrete: # type: ignore
         if (self._mode == "train"):
             return self.finetune(X, y)
         else:
             return self.predict(X)
 
 @nice_repr
-class FullFineTunerTextTransformerClassifier(FullFineTunerBase):
+class FineTuneLLMEmbeddingClassifier(FullFineTunerBase):
     def __init__(
         self, 
         inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
@@ -588,7 +588,7 @@ class FullFineTunerTextTransformerClassifier(FullFineTunerBase):
         return y
 
 @nice_repr
-class PartialFineTunerTextTransformerClassifier(FullFineTunerBase):
+class PartialFineTuneLLMEmbeddingClassifier(FullFineTunerBase):
     def __init__(
         self, 
         inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
@@ -703,7 +703,7 @@ class PartialFineTunerTextTransformerClassifier(FullFineTunerBase):
         return y
     
 @nice_repr
-class LORAFineTunerTextTransformerClassifier(FullFineTunerBase):
+class LoraLLMEmbeddingClassifier(FullFineTunerBase):
     def __init__(
         self, 
         inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
@@ -790,7 +790,7 @@ class LORAFineTunerTextTransformerClassifier(FullFineTunerBase):
         return y
     
 @nice_repr
-class FullFineTunerGenerativeTransformerClassifier(FullFineTunerTextTransformerClassifier):
+class FineTuneGenLLMClassifier(FineTuneLLMEmbeddingClassifier):
     def __init__(
         self, 
         inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
@@ -819,7 +819,7 @@ class FullFineTunerGenerativeTransformerClassifier(FullFineTunerTextTransformerC
             lr_scheduler)
 
 @nice_repr
-class PartialFineTunerGenerativeTransformerClassifier(PartialFineTunerTextTransformerClassifier):
+class PartialFineTuneGenLLMClassifier(PartialFineTuneLLMEmbeddingClassifier):
     def __init__(
         self, 
         inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
@@ -850,7 +850,7 @@ class PartialFineTunerGenerativeTransformerClassifier(PartialFineTunerTextTransf
             lr_scheduler)
         
 @nice_repr
-class LORAFineTunerGenerativeTransformerClassifier(LORAFineTunerTextTransformerClassifier):
+class LoraGenLLMClassifier(LoraLLMEmbeddingClassifier):
     def __init__(
         self, 
         inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore

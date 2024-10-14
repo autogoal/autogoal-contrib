@@ -58,7 +58,6 @@ class BertEmbedding(AlgorithmBase):
             torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
         )
         self.verbose = verbose
-        self.print("Using device: %s" % self.device)
         self.merge_mode = merge_mode
         self.model = None
         self.tokenizer = None
@@ -190,7 +189,7 @@ class BertSequenceEmbedding(AlgorithmBase):
             torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
         )
         self.verbose = verbose
-        self.print("Using device: %s" % self.device)
+
         self.merge_mode = merge_mode
         self.model = None
         self.tokenizer = None
@@ -302,7 +301,6 @@ class BertTokenizeSequenceEmbedding(AlgorithmBase):
             torch.device("cuda") if torch.cuda.is_available() and is_cuda_multiprocessing_enabled() else torch.device("cpu")
         )
         self.verbose = verbose
-        self.print("Using device: %s" % self.device)
         self.model = None
         self.tokenizer = None
 

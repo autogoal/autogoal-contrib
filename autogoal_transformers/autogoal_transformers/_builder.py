@@ -63,7 +63,6 @@ class TransformersWrapper(AlgorithmBase):
             if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
             else torch.device("cpu")
         )
-        self.print("Using device: %s" % self.device)
 
     def train(self):
         self._mode = "train"
