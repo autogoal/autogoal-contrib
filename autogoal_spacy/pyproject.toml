@@ -13,8 +13,6 @@ packages = [{include = "autogoal_spacy"}]
 [tool.poetry.dependencies]
 python = ">=3.9.13,<3.11"
 spacy = "^3.5.1"
-autogoal = "^1.0.2"
-autogoal-contrib = "^0.8.2"
 
 [build-system]
 requires = ["poetry-core"]

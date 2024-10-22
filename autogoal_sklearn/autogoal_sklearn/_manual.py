@@ -331,6 +331,71 @@ class SparseAggregatedTransformer(AggregatedTransformer):
     def run(self, X: Seq[MatrixContinuousSparse]) -> Seq[MatrixContinuousSparse]:
         return SklearnTransformer.run(self, X)
 
+
+from sklearn.preprocessing import LabelEncoder as _LabelEncoder
+
+class LabelEncoder(_LabelEncoder, SklearnTransformer):
+    def __init__(
+        self,
+    ):
+        SklearnTransformer.__init__(self)
+        _LabelEncoder.__init__(
+            self
+        )
+
+    def run(self, input: VectorCategorical) -> VectorDiscrete:
+        return SklearnTransformer.run(self, input)
+
+class CategoryDiscreteEncoderClassifier(_LabelEncoder, SklearnTransformer):
+    def __init__(
+        self, 
+        encoder: algorithm(VectorCategorical, VectorDiscrete), # type: ignore
+        classifier: algorithm(*[Seq[Sentence], Supervised[VectorDiscrete], VectorDiscrete]) # type: ignore
+    ):
+        self.encoder = encoder
+        self.classifier = classifier
+        SklearnTransformer.__init__(self)
+        
+    def _train(self, X, y=None):
+        self.encoder._mode = "train"
+        encoded_y = self.encoder.run(y)
+        
+        self.id_to_classes = {}
+        self.classes_to_id = {}
+        cls_ids = self.encoder.transform(self.encoder.classes_)
+        
+        for i in range(len(cls_ids)):
+            cls = self.encoder.classes_[i]
+            cls_id = cls_ids[i]
+            self.id_to_classes[cls_id] = cls
+            self.classes_to_id[cls] = cls_id
+        
+        self.classifier._mode = "train"
+        pred_y = self.classifier.run(X, encoded_y)
+        return [self.id_to_classes[cls_id] for cls_id in pred_y]
+
+    def _eval(self, X, y=None):
+        self.encoder._mode = "eval"
+        encoded_y = self.encoder.run(y)
+        
+        self.id_to_classes = {}
+        self.classes_to_id = {}
+        cls_ids = self.encoder.transform(self.encoder.classes_)
+        
+        for i in range(len(cls_ids)):
+            cls = self.encoder.classes_[i]
+            cls_id = cls_ids[i]
+            self.id_to_classes[cls_id] = cls
+            self.classes_to_id[cls] = cls_id
+        
+        self.classifier._mode = "eval"
+        pred_y = self.classifier.run(X, encoded_y)
+        return [self.id_to_classes[cls_id] for cls_id in pred_y]
+
+    def run(self, X: Seq[Sentence], y: Supervised[VectorCategorical]) -> VectorCategorical:
+        return SklearnTransformer.run(self, X, y)
+
+
 # @nice_repr
 # class AggregatedVectorizer(SklearnTransformer):
 #     def __init__(

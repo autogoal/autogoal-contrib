@@ -28,7 +28,6 @@ class WikipediaContainsWord(AlgorithmBase):
         pass
 
     def run(self, input: Word) -> FeatureSet:
-        """This method use Word2Vect of gensim for tranform a word in embedding vector."""
         return dict(in_wikipedia=bool(wikipedia.search(input)))
 
 
@@ -55,5 +54,4 @@ class WikipediaContainsWordSpanish(AlgorithmBase):
         wikipedia.set_lang("es")
 
     def run(self, input: Word) -> FeatureSet:
-        """This method use Word2Vect of gensim for tranform a word in embedding vector."""
         return dict(in_wikipedia=bool(wikipedia.search(input)))

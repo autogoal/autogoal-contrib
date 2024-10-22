@@ -17,7 +17,7 @@ def find_classes(include=None, exclude=None, modules=None, input=None, output=No
     Parameters:
     - include (str, optional): A regular expression pattern. Only classes whose string representation matches this pattern will be included.
     - exclude (str, optional): A regular expression pattern. Classes whose string representation matches this pattern will be excluded.
-    - modules (list, optional): A list of modules to search for classes. If not provided, the function will search in all installed contribs excluding "remote" and "contrib".
+    - modules (list, optional): A list of modules to search for classes. If not provided, the function will search in all installed contribs excluding "remote".
     - input (str, optional): A regular expression pattern. Only classes whose 'run' method's 'input' parameter annotation matches this pattern will be included.
     - output (str, optional): A regular expression pattern. Only classes whose 'run' method's return annotation matches this pattern will be included.
     - include_classes (list, optional): A list of specific classes to include.

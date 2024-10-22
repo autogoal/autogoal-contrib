@@ -17,9 +17,11 @@ transformers = "^4.27.3"
 evaluate = "^0.4.1"
 datasets = "^2.14.6"
 sentencepiece = "^0.2.0"
-autogoal = "^1.0.2"
-autogoal-contrib = "^0.8.2"
 peft="^0.11.1"
+poetry = "^1.8.4"
+protobuf = "^5.28.2"
+numpy = "1.26.4"
+huggingface-hub = "^0.26.1"
 
 [build-system]
 requires = ["poetry-core"]

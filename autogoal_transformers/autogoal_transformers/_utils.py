@@ -1,6 +1,6 @@
 import json
 from transformers import AutoModel, AutoTokenizer, AutoConfig
-from huggingface_hub import HfApi, ModelFilter 
+from huggingface_hub import HfApi
 import re
 from enum import Enum
 from tqdm import tqdm
@@ -36,6 +36,10 @@ TASK_TO_BASE_MODELS = {
         "bert-large-cased",
         "bert-base-multilingual-uncased",
         "bert-base-multilingual-cased",
+        
+        # RoBERTuito
+        "pysentimiento/robertuito-base-uncased",
+        "PlanTL-GOB-ES/roberta-base-bne",
         
         # DistilBERT
         "distilbert-base-uncased",
@@ -119,7 +123,7 @@ def get_base_hf_models(target_task):
     
 def get_hf_models(target_task):
     hf_api = HfApi()
-    return hf_api.list_models(filter=ModelFilter(task = target_task, library="pytorch"))
+    return hf_api.list_models(task=target_task, library="pytorch")
 
 def get_hf_models_sorted_by_likes(target_task, min_likes, min_downloads):
     from bs4 import BeautifulSoup
@@ -279,10 +283,15 @@ class SimpleTextDataset(Dataset):
 
     def __getitem__(self, idx):
         text = self.texts[idx]
-        encoding = self.tokenizer(text, truncation=True, padding='max_length', max_length=self.max_length, return_tensors='pt')
+        encoding = self.tokenizer(
+            text,
+            truncation=True,
+            padding='max_length',
+            max_length=self.max_length,
+            return_tensors='pt',
+        )
         encoding = {key: val.squeeze() for key, val in encoding.items()}
 
-        # Only add 'labels' if labels are provided
         if self.labels is not None:
             label = self.labels[idx]
             encoding['labels'] = torch.tensor(label, dtype=torch.long)

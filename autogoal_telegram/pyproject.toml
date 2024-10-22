@@ -14,8 +14,7 @@ packages = [{include = "autogoal_telegram"}]
 python = ">=3.9.13,<3.11"
 telegram = "^0.0.1"
 python-telegram-bot = "13"
-autogoal = "^1.0.2"
-autogoal-contrib = "^0.8.2"
+poetry = "^1.8.4"
 
 [build-system]
 requires = ["poetry-core"]

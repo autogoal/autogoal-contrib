@@ -8,8 +8,17 @@ except:
 
 from autogoal_gensim._base import (
     Word2VecEmbedding,
+    Word2VecEmbeddingFeatureSet,
+    
     Word2VecEmbeddingSpanish,
+    Word2VecEmbeddingSpanishFeatureSet,
+    
     FastTextEmbeddingSpanishSUC,
+    FastTextEmbeddingSpanishSUCFeatureSet,
+    
     FastTextEmbeddingSpanishSWBC,
+    FastTextEmbeddingSpanishSWBCFeatureSet,
+    
     GloveEmbeddingSpanishSWBC,
+    GloveEmbeddingSpanishSWBCFeatureSet,
 )

@@ -14,9 +14,8 @@ packages = [{include = "autogoal_sklearn"}]
 python = ">=3.9.13,<3.11"
 scikit-learn = "1.0"
 sklearn-crfsuite = "^0.3.6"
-numpy = "^1.21.6"
-autogoal = "^1.0.2"
-autogoal-contrib = "^0.8.2"
+numpy = "1.26.4"
+poetry = "^1.8.4"
 
 [build-system]
 requires = ["poetry-core"]

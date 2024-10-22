@@ -13,9 +13,15 @@ from autogoal.kb import (
 )
 from autogoal.kb._algorithm import _make_list_args_and_kwargs
 from autogoal.kb import algorithm, AlgorithmBase, VectorContinuous
-from autogoal.grammar import DiscreteValue, CategoricalValue, BooleanValue, ContinuousValue
+from autogoal.grammar import (
+    DiscreteValue,
+    CategoricalValue,
+    BooleanValue,
+)
 from autogoal.utils import nice_repr
-from autogoal_transformers._builder import TransformersWrapper, PretrainedSequenceEmbedding
+from autogoal_transformers._builder import (
+    TransformersWrapper,
+)
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -28,12 +34,28 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from torch.optim import AdamW
-from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, get_constant_schedule_with_warmup, AutoTokenizer, AutoModelForSequenceClassification
+from transformers import (
+    get_linear_schedule_with_warmup,
+    get_cosine_schedule_with_warmup,
+    get_constant_schedule_with_warmup,
+    get_cosine_with_hard_restarts_schedule_with_warmup,
+    get_polynomial_decay_schedule_with_warmup,
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    RobertaForSequenceClassification,
+)
 from autogoal_transformers._utils import SimpleTextDataset
 from peft import get_peft_model, LoraConfig, TaskType
 import os
 
 import transformers
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoModelForCausalLM,
+    AutoModelForSeq2SeqLM,
+    AutoConfig,
+)
+
 
 @nice_repr
 class SeqPretrainedTokenClassifier(AlgorithmBase):
@@ -47,6 +69,7 @@ class SeqPretrainedTokenClassifier(AlgorithmBase):
     def run(self, X: Seq[Seq[Word]], y: Supervised[Seq[Seq[Label]]]) -> Seq[Seq[Label]]:
         args_kwargs = _make_list_args_and_kwargs(X, y)
         return [self.inner.run(*t.args, **t.kwargs) for t in args_kwargs]
+
 
 @nice_repr
 class TGenerationBasedPretrainedEmbedder(AlgorithmBase):
@@ -93,6 +116,7 @@ class TGenerationBasedPretrainedEmbedder(AlgorithmBase):
             del inputs, outputs
             torch.cuda.empty_cache()
         return np.vstack(embeddings_matrix)
+
 
 @nice_repr
 class CARPClassifier(TransformersWrapper):
@@ -148,8 +172,10 @@ class CARPClassifier(TransformersWrapper):
             training_examples_text = "\n".join(
                 [self.augmented_data[i]["training_example"] for i in training_examples]
             )
-            augmented_prompts.append(base_prompt + textwrap.dedent(
-                f"""
+            augmented_prompts.append(
+                base_prompt
+                + textwrap.dedent(
+                    f"""
                 {training_examples_text}
                 
                 target
@@ -158,7 +184,8 @@ class CARPClassifier(TransformersWrapper):
                 REASONING:
                 LABEL:
                 """
-            ))
+                )
+            )
 
         generated_text = self.pretrained_text_generator.run(augmented_prompts)
         labels_pattern = "|".join(map(re.escape, self.unique_labels))
@@ -260,6 +287,7 @@ class CARPClassifier(TransformersWrapper):
     ) -> VectorCategorical:
         return TransformersWrapper.run(self, X, y)
 
+
 @nice_repr
 class GenerativeClassifier(TransformersWrapper):
     def __init__(
@@ -287,7 +315,7 @@ class GenerativeClassifier(TransformersWrapper):
         self.pretrained_text_generator.temperature = 1
         self.unique_labels = np.unique(y)
         self.unique_labels_text = ", ".join(self.unique_labels)
-        
+
         if self.zero_shot:
             return y
 
@@ -306,7 +334,7 @@ class GenerativeClassifier(TransformersWrapper):
         )
 
         augmented_prompts = []
-        if (not self.zero_shot):
+        if not self.zero_shot:
             for i in range(len(X)):
                 training_examples = []
                 if self.training_examples_selection_method == "random":
@@ -314,14 +342,17 @@ class GenerativeClassifier(TransformersWrapper):
                         range(len(self.augmented_data)), self.few_shots_amount
                     )
 
-                training_examples_text = "\n".join([
-                    f"""
+                training_examples_text = "\n".join(
+                    [
+                        f"""
                     example {i}
                     INPUT: {self.augmented_data[i][0]}
                     LABEL: {self.augmented_data[i][1]}
-                    """ for i in training_examples]
-                ) 
-                
+                    """
+                        for i in training_examples
+                    ]
+                )
+
                 nprompt = base_prompt + textwrap.dedent(
                     f"""
                     {training_examples_text}
@@ -333,13 +364,17 @@ class GenerativeClassifier(TransformersWrapper):
                 )
                 augmented_prompts.append(nprompt)
             else:
-                augmented_prompts = [base_prompt + textwrap.dedent(
-                    f"""
+                augmented_prompts = [
+                    base_prompt
+                    + textwrap.dedent(
+                        f"""
                     target
                     INPUT: {X[i]}
                     LABEL:
                     """
-                ) for i in range(len(X))]
+                    )
+                    for i in range(len(X))
+                ]
 
         generated_text = self.pretrained_text_generator.run(augmented_prompts)
         labels_pattern = "|".join(map(re.escape, self.unique_labels))
@@ -358,6 +393,7 @@ class GenerativeClassifier(TransformersWrapper):
         self, X: Seq[Sentence], y: Supervised[VectorCategorical]
     ) -> VectorCategorical:
         return TransformersWrapper.run(self, X, y)
+
 
 @nice_repr
 class DocumentEmbedder(AlgorithmBase):
@@ -405,13 +441,16 @@ class DocumentEmbedder(AlgorithmBase):
 
         if self.normalization_strategy != "none":
             doc_embeddings = self.normalize(torch.stack(doc_embeddings))
-            
+
         return doc_embeddings
 
     def pool(self, doc_sent_embeddings):
-        doc_sent_embeddings_tensors = [torch.tensor(emb, dtype=torch.float) if isinstance(emb, np.ndarray) else emb for emb in doc_sent_embeddings]
+        doc_sent_embeddings_tensors = [
+            torch.tensor(emb, dtype=torch.float) if isinstance(emb, np.ndarray) else emb
+            for emb in doc_sent_embeddings
+        ]
         stacked_embeddings = torch.stack(doc_sent_embeddings_tensors).to(self.device)
-        
+
         if self.pooling == "mean":
             doc_embedding = torch.mean(stacked_embeddings, dim=0)
         elif self.pooling == "max":
@@ -443,10 +482,11 @@ class DocumentEmbedder(AlgorithmBase):
             )
         return normalized_embeddings.to("cpu")
 
+
 @nice_repr
-class FullFineTunerBase(AlgorithmBase):
+class FineTunerBase(AlgorithmBase):
     def __init__(
-        self, 
+        self,
     ):
         self._mode = "train"
         self.device = (
@@ -454,54 +494,105 @@ class FullFineTunerBase(AlgorithmBase):
             if torch.cuda.is_available() and is_cuda_multiprocessing_enabled()
             else torch.device("cpu")
         )
-        
+
+        print(self.device)
+
     def train(self):
         self._mode = "train"
 
     def eval(self):
         self._mode = "eval"
-        
-    def init_model(self, model, num_labels):
-        model.init_model(
-            transformer_model_cls=AutoModelForSequenceClassification, 
-            tokenizer_cls=AutoTokenizer, 
-            transformer_cls_kwargs={
-                'num_labels':num_labels,
-                'trust_remote_code': True
-            }
+
+    def init_model(self, inner_model, num_labels):
+        inner_model_name = inner_model.name
+        assert isinstance(inner_model_name, str), "Model name must be a string"
+
+        self.config = AutoConfig.from_pretrained(
+            inner_model_name,
+            num_labels=num_labels,
+            hidden_dropout_prob=self.dropout_rate,
+            attention_probs_dropout_prob=self.dropout_rate,
+            trust_remote_code=True,
         )
-        self.model = model.model.to(self.device)
-        self.tokenizer = model.tokenizer
-        
+        self.tokenizer = AutoTokenizer.from_pretrained(inner_model_name, use_fast=True)
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            inner_model_name,
+            config=self.config,
+            trust_remote_code=True,
+        )
+        self.model.to(self.device)
+
         if self.tokenizer.pad_token is None:
             print("No padding token. Adding EOS as PAD token.")
-            self.tokenizer.pad_token = self.tokenizer.eos_token  # Setting pad_token as eos_token for generative models
-            self.model.config.pad_token_id = self.tokenizer.pad_token
-            
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+            self.model.config.pad_token_id = self.tokenizer.pad_token_id
+
+        max_model_length = self.tokenizer.model_max_length
+        if max_model_length < self.max_length:
+            print(
+                f"Model max length is {max_model_length} and the provided max length is {self.max_length}. Using the tokenizer max length."
+            )
+            self.max_length = min(self.max_length, max_model_length)
+
     def setup_optimizer(self):
-        # Set up the optimizer
-        if self.optimizer == 'adamw':
-            return AdamW(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-        elif self.optimizer == 'adam':
-            return torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-        elif self.optimizer == 'sgd':
-            return torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        if self.optimizer == "adamw":
+            return AdamW(
+                self.model.parameters(),
+                lr=self.learning_rate,
+                weight_decay=self.weight_decay,
+            )
+        elif self.optimizer == "adam":
+            return torch.optim.Adam(
+                self.model.parameters(),
+                lr=self.learning_rate,
+                weight_decay=self.weight_decay,
+            )
+        elif self.optimizer == "sgd":
+            return torch.optim.SGD(
+                self.model.parameters(),
+                lr=self.learning_rate,
+                weight_decay=self.weight_decay,
+            )
+        elif self.optimizer == "adagrad":
+            return torch.optim.Adagrad(
+                self.model.parameters(),
+                lr=self.learning_rate,
+                weight_decay=self.weight_decay,
+            )
 
     def setup_scheduler(self, optimizer, total_steps):
-        # Set up the learning rate scheduler
-        if self.lr_scheduler == 'linear':
-            return get_linear_schedule_with_warmup(optimizer, num_warmup_steps=self.warmup_steps, num_training_steps=total_steps)
-        elif self.lr_scheduler == 'cosine':
-            return get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=self.warmup_steps, num_training_steps=total_steps)
-        elif self.lr_scheduler == 'constant':
-            return get_constant_schedule_with_warmup(optimizer, num_warmup_steps=self.warmup_steps)
+        if self.lr_scheduler == "linear":
+            return get_linear_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps=self.warmup_steps,
+                num_training_steps=total_steps,
+            )
+        elif self.lr_scheduler == "cosine":
+            return get_cosine_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps=self.warmup_steps,
+                num_training_steps=total_steps,
+            )
+        elif self.lr_scheduler == "constant":
+            return get_constant_schedule_with_warmup(
+                optimizer, num_warmup_steps=self.warmup_steps
+            )
+        elif self.lr_scheduler == "cosine_with_restarts":
+            return get_cosine_with_hard_restarts_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps=self.warmup_steps,
+                num_training_steps=total_steps,
+                num_cycles=1,
+            )
+        elif self.lr_scheduler == "polynomial":
+            return get_polynomial_decay_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps=self.warmup_steps,
+                num_training_steps=total_steps,
+                power=1.0,
+            )
 
-    def setup_dropout(self):
-        # Set the dropout rate if necessary
-        for module in self.model.modules():
-            if isinstance(module, nn.Dropout):
-                module.p = self.dropout_rate
-                
     def finetune(self, X, y):
         pass
 
@@ -512,33 +603,46 @@ class FullFineTunerBase(AlgorithmBase):
         preds = []
         with torch.no_grad():
             for batch in tqdm(dataloader, desc="Evaluating"):
-                inputs = {key: val.to(self.device) for key, val in batch.items() if key != 'labels'}
+                inputs = {
+                    key: val.to(self.device)
+                    for key, val in batch.items()
+                    if key != "labels"
+                }
                 outputs = self.model(**inputs)
                 logits = outputs.logits
                 preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
+
+        preds = self._postprocess_output(preds)
         return preds
-    
-    def run(self, X: Seq[Sentence], y: Supervised[VectorDiscrete]) -> VectorDiscrete: # type: ignore
-        if (self._mode == "train"):
+
+    def _preprocess_input(self, X, y):
+        return X, y
+
+    def _postprocess_output(self, y):
+        return y
+
+    def run(self, X: Seq[Sentence], y: Supervised[VectorDiscrete]) -> VectorDiscrete:  # type: ignore
+        if self._mode == "train":
             return self.finetune(X, y)
         else:
             return self.predict(X)
 
+
 @nice_repr
-class FineTuneLLMEmbeddingClassifier(FullFineTunerBase):
+class FineTuneLLMEmbeddingClassifier(FineTunerBase):
     def __init__(
-        self, 
-        inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
-        batch_size: DiscreteValue(32, 512),  # type: ignore
-        max_length: DiscreteValue(32, 512), # type: ignore
-        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
-        epochs: DiscreteValue(1, 5), # type: ignore
-        warmup_steps: DiscreteValue(0, 2000), # type: ignore
-        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
-        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5), # type: ignore
-        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
-        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
-        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+        self,
+        inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256),  # type: ignore
+        max_length: CategoricalValue(64, 128, 256, 512, 1024, 2048, 4096),  # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6),  # type: ignore
+        epochs: DiscreteValue(1, 15),  # type: ignore
+        warmup_steps: CategoricalValue(0, 100, 500, 1000, 2000),  # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1),  # type: ignore
+        optimizer: CategoricalValue("adamw", "adam", "sgd", "adagrad"),  # type: ignore
+        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5),  # type: ignore
+        gradient_accumulation_steps: CategoricalValue(1, 2, 4, 8, 16),  # type: ignore
+        lr_scheduler: CategoricalValue("linear", "cosine", "cosine_with_restarts", "polynomial", "constant"),  # type: ignore
     ):
         self.model = None
         self.tokenizer = None
@@ -554,57 +658,73 @@ class FineTuneLLMEmbeddingClassifier(FullFineTunerBase):
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.lr_scheduler = lr_scheduler
         super().__init__()
-        
+
     def finetune(self, X, y):
+        X, y = self._preprocess_input(X, y)
+
         num_labels = len(np.unique(y))
         self.init_model(self.inner_model, num_labels)
-        self.setup_dropout()
-        
-        dataset = SimpleTextDataset(X, y, self.tokenizer, max_length=self.max_length) #for BERT-like models
+
+        dataset = SimpleTextDataset(X, y, self.tokenizer, max_length=self.max_length)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        optimizer = self.setup_optimizer()#AdamW(self.pretrained_model_seq_embedder.model.parameters(), lr=self.learning_rate)
+        optimizer = self.setup_optimizer()
         total_steps = len(dataloader) * self.epochs
-        scheduler = self.setup_scheduler(optimizer, total_steps)#get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+        scheduler = self.setup_scheduler(optimizer, total_steps)
 
         for epoch in range(self.epochs):
             self.model.train()
             total_loss = 0
+            optimizer.zero_grad()
+
             for step, batch in enumerate(tqdm(dataloader, desc="Training")):
-                optimizer.zero_grad()
-                inputs = {key: val.to(self.device) for key, val in batch.items() if key != 'labels'}
-                labels = batch['labels'].to(self.device)
+                inputs = {
+                    key: val.to(self.device)
+                    for key, val in batch.items()
+                    if key != "labels"
+                }
+                labels = batch["labels"].to(self.device)
+
                 outputs = self.model(**inputs, labels=labels)
-                loss = outputs.loss / self.gradient_accumulation_steps
+
+                loss = (
+                    outputs.loss / self.gradient_accumulation_steps
+                    if self.gradient_accumulation_steps > 0
+                    else outputs.loss
+                )
                 loss.backward()
-                
-                if (step + 1) % self.gradient_accumulation_steps == 0:
+
+                if (step + 1) % self.gradient_accumulation_steps == 0 or (
+                    step + 1
+                ) == len(dataloader):
                     optimizer.step()
                     scheduler.step()
                     optimizer.zero_grad()
 
-                total_loss += loss.item()
-            
-            print(f"Epoch {epoch+1}/{self.epochs}, Training Loss: {total_loss / len(dataloader)}")
+                total_loss += loss.item() * self.gradient_accumulation_steps
+
+            avg_loss = total_loss / len(dataloader)
+            print(f"Epoch {epoch+1}/{self.epochs}, Training Loss: {avg_loss}")
 
         return y
 
+
 @nice_repr
-class PartialFineTuneLLMEmbeddingClassifier(FullFineTunerBase):
+class PartialFineTuneLLMEmbeddingClassifier(FineTunerBase):
     def __init__(
-        self, 
-        inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
-        num_trainable_layers: DiscreteValue(0, 50),  # type: ignore
-        batch_size: DiscreteValue(32, 512),  # type: ignore
-        max_length: DiscreteValue(32, 512), # type: ignore
-        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
-        epochs: DiscreteValue(1, 5), # type: ignore
-        warmup_steps: DiscreteValue(0, 2000), # type: ignore
-        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
-        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5), # type: ignore
-        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
-        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
-        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+        self,
+        inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]),  # type: ignore
+        num_trainable_layers: CategoricalValue(0, 2, 4, 8, 16, 32, 64),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256),  # type: ignore
+        max_length: CategoricalValue(64, 128, 256, 512, 1024, 2048, 4096),  # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6),  # type: ignore
+        epochs: DiscreteValue(1, 10),  # type: ignore
+        warmup_steps: CategoricalValue(0, 100, 500, 1000, 2000),  # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1),  # type: ignore
+        optimizer: CategoricalValue("adamw", "adam", "sgd", "adagrad"),  # type: ignore
+        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5),  # type: ignore
+        gradient_accumulation_steps: CategoricalValue(1, 2, 4, 8, 16),  # type: ignore
+        lr_scheduler: CategoricalValue("linear", "cosine", "cosine_with_restarts", "polynomial", "constant"),  # type: ignore
     ):
         self.model = None
         self.tokenizer = None
@@ -621,20 +741,22 @@ class PartialFineTuneLLMEmbeddingClassifier(FullFineTunerBase):
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.lr_scheduler = lr_scheduler
         super().__init__()
-        
+
     def count_trainable_parameters(self):
         return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
 
     def set_freezed_layers(self):
         # Unfreeze the specified number of layers from end to start
         layer_groups = self.group_layers_by_number()
-        
+
         # Freeze all layers initially
         for param in self.model.parameters():
             param.requires_grad = False
-        
+
         # Unfreeze classifier layers and optionally other layers
-        classifier_params = [p for n, p in self.model.named_parameters() if 'classifier' in n]
+        classifier_params = [
+            p for n, p in self.model.named_parameters() if "classifier" in n
+        ]
         for param in classifier_params:
             param.requires_grad = True
 
@@ -648,17 +770,21 @@ class PartialFineTuneLLMEmbeddingClassifier(FullFineTunerBase):
                 layers_unfreezed += 1
             else:
                 break
-        
+
         # Optionally handle embeddings and other non-numbered layers
         if layers_unfreezed < self.num_trainable_layers:
-            non_layer_params = [p for n, p in self.model.named_parameters() if not re.search(r'\.layer\.\d+\.', n) and 'classifier' not in n]
+            non_layer_params = [
+                p
+                for n, p in self.model.named_parameters()
+                if not re.search(r"\.layer\.\d+\.", n) and "classifier" not in n
+            ]
             for param in non_layer_params:
                 param.requires_grad = True
 
     def group_layers_by_number(self):
         # Group parameters by their layer number
         layer_groups = {}
-        pattern = re.compile(r'\.layer\.(\d+)\.')
+        pattern = re.compile(r"\.layer\.(\d+)\.")
         for name, param in self.model.named_parameters():
             match = pattern.search(name)
             if match:
@@ -673,13 +799,15 @@ class PartialFineTuneLLMEmbeddingClassifier(FullFineTunerBase):
         self.init_model(self.inner_model, num_labels)
         self.setup_dropout()
         self.set_freezed_layers()
-        
-        dataset = SimpleTextDataset(X, y, self.tokenizer, max_length=self.max_length) #for BERT-like models
+
+        dataset = SimpleTextDataset(
+            X, y, self.tokenizer, max_length=self.max_length
+        )  # for BERT-like models
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        optimizer = self.setup_optimizer()#AdamW(self.pretrained_model_seq_embedder.model.parameters(), lr=self.learning_rate)
+        optimizer = self.setup_optimizer()
         total_steps = len(dataloader) * self.epochs
-        scheduler = self.setup_scheduler(optimizer, total_steps)#get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+        scheduler = self.setup_scheduler(optimizer, total_steps)
 
         print(f"trainable parameters: {self.count_trainable_parameters()}")
 
@@ -688,40 +816,50 @@ class PartialFineTuneLLMEmbeddingClassifier(FullFineTunerBase):
             total_loss = 0
             for step, batch in enumerate(tqdm(dataloader, desc="Training")):
                 optimizer.zero_grad()
-                inputs = {key: val.to(self.device) for key, val in batch.items() if key != 'labels'}
-                labels = batch['labels'].to(self.device)
+                inputs = {
+                    key: val.to(self.device)
+                    for key, val in batch.items()
+                    if key != "labels"
+                }
+                labels = batch["labels"].to(self.device)
                 outputs = self.model(**inputs, labels=labels)
                 loss = outputs.loss / self.gradient_accumulation_steps
                 loss.backward()
-                
+
                 if (step + 1) % self.gradient_accumulation_steps == 0:
                     optimizer.step()
                     scheduler.step()
                     optimizer.zero_grad()
 
                 total_loss += loss.item()
-            
-            print(f"Epoch {epoch+1}/{self.epochs}, Training Loss: {total_loss / len(dataloader)}")
+
+            print(
+                f"Epoch {epoch+1}/{self.epochs}, Training Loss: {total_loss / len(dataloader)}"
+            )
         return y
-    
+
+
 @nice_repr
-class LoraLLMEmbeddingClassifier(FullFineTunerBase):
+class LoraLLMEmbeddingClassifier(FineTunerBase):
     def __init__(
-        self, 
-        inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]), # type: ignore
-        lora_r: CategoricalValue(2, 4, 8, 16), # type: ignore
-        lora_alpha: CategoricalValue(8, 16, 32, 64), # type: ignore
-        lora_dropout: CategoricalValue(0.0, 0.1, 0.2, 0.3), # type: ignore
-        lora_bias: CategoricalValue("none", "all"), # type: ignore
-        batch_size: DiscreteValue(32, 512),  # type: ignore
-        max_length: DiscreteValue(32, 512), # type: ignore
-        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
-        epochs: DiscreteValue(1, 10), # type: ignore
-        warmup_steps: DiscreteValue(0, 2000), # type: ignore
-        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
-        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
-        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
-        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+        self,
+        inner_model: algorithm(*[Word, VectorContinuous], include=["transformer"]),  # type: ignore
+        lora_r: DiscreteValue(1, 32),  # type: ignore
+        lora_alpha: CategoricalValue(8, 16, 32, 64),  # type: ignore
+        lora_dropout: CategoricalValue(0.0, 0.1, 0.2, 0.3),  # type: ignore
+        lora_bias: CategoricalValue("none", "all", "lora_only"),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256),  # type: ignore
+        max_length: CategoricalValue(64, 128, 256, 512, 1024, 2048, 4096),  # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6),  # type: ignore
+        epochs: DiscreteValue(1, 10),  # type: ignore
+        warmup_steps: CategoricalValue(0, 100, 500, 1000, 2000),  # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1),  # type: ignore
+        optimizer: CategoricalValue("adamw", "adam", "sgd", "adagrad"),  # type: ignore
+        gradient_accumulation_steps: CategoricalValue(1, 2, 4, 8, 16),  # type: ignore
+        lr_scheduler: CategoricalValue("linear", "cosine", "cosine_with_restarts", "polynomial", "constant"),  # type: ignore
+        model_save: CategoricalValue("classifier", "all"),  # type: ignore
+        init_lora_weights: CategoricalValue("gaussian", "pissa", "loftq", None),  # type: ignore
+        fan_in_fan_out: CategoricalValue(True, False),  # type: ignore
     ):
         self.model = None
         self.tokenizer = None
@@ -739,25 +877,44 @@ class LoraLLMEmbeddingClassifier(FullFineTunerBase):
         self.optimizer = optimizer
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.lr_scheduler = lr_scheduler
+        self.model_save = model_save
+        self.init_lora_weights = init_lora_weights
+        self.fan_in_fan_out = fan_in_fan_out
         super().__init__()
-        
-    def set_lora_config(self):
-        lora_config = LoraConfig(
-            task_type=TaskType.SEQ_CLS,
-            target_modules=self.get_specific_layer_names(),
-            r=self.lora_r,
-            lora_alpha=self.lora_alpha,
-            lora_dropout=self.lora_dropout, 
-            bias=self.lora_bias,
-            modules_to_save=["classifier"],
-        )
-        self.model = get_peft_model(self.model, lora_config)
-        self.model.print_trainable_parameters()
-    
+
+    def set_lora_config(self, target_modules=None):
+        try:
+            lora_config = LoraConfig(
+                task_type=TaskType.SEQ_CLS,
+                target_modules=target_modules,
+                r=self.lora_r,
+                lora_alpha=self.lora_alpha,
+                lora_dropout=self.lora_dropout,
+                bias=self.lora_bias,
+                modules_to_save=(
+                    [self.model_save] if (self.model_save == "classifier") else None
+                ),
+                init_lora_weights=self.init_lora_weights,
+                fan_in_fan_out=self.fan_in_fan_out,
+            )
+            self.model = get_peft_model(self.model, lora_config)
+            self.model.print_trainable_parameters()
+        except Exception as e:
+            if target_modules is not None:
+                print(
+                    f"Failed to set LORA target modules. Trying with automatic LORA target modules discovery."
+                )
+                raise e
+
+            print(
+                "Failed automatic LORA target modules discovery. Trying with in-house modules detection."
+            )
+            return self.set_lora_config(self.get_specific_layer_names())
+
     def print_model_layers(self):
         for name, param in self.model.named_parameters():
-            print(name, param.shape)    
-    
+            print(name, param.shape)
+
     def get_specific_layer_names(self):
         model = self.model
         # Create a list to store the layer names
@@ -765,125 +922,167 @@ class LoraLLMEmbeddingClassifier(FullFineTunerBase):
         # Recursively visit all modules and submodules
         for name, module in model.named_modules():
             # Check if the module is an instance of the specified layers
-            if isinstance(module, (torch.nn.Linear, torch.nn.Embedding, torch.nn.Conv2d, transformers.pytorch_utils.Conv1D)):
+            if isinstance(
+                module,
+                (
+                    torch.nn.Linear,
+                    torch.nn.Embedding,
+                    torch.nn.Conv2d,
+                    transformers.pytorch_utils.Conv1D,
+                ),
+            ):
                 names = name.split(".")
                 # model-specific
                 layer_names.append(names[0] if len(names) == 1 else names[-1])
-        
+
         return layer_names
 
     def finetune(self, X, y):
+        X, y = self._preprocess_input(X, y)
         num_labels = len(np.unique(y))
         self.init_model(self.inner_model, num_labels)
         self.set_lora_config()
-        
-        dataset = SimpleTextDataset(X, y, self.tokenizer, max_length=self.max_length) #for BERT-like models
+
+        dataset = SimpleTextDataset(
+            X, y, self.tokenizer, max_length=self.max_length
+        )  # for BERT-like models
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        optimizer = self.setup_optimizer()#AdamW(self.pretrained_model_seq_embedder.model.parameters(), lr=self.learning_rate)
+        optimizer = self.setup_optimizer()
         total_steps = len(dataloader) * self.epochs
-        scheduler = self.setup_scheduler(optimizer, total_steps)#get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
-
+        scheduler = self.setup_scheduler(optimizer, total_steps)
         for epoch in range(self.epochs):
             self.model.train()
             total_loss = 0
             for step, batch in enumerate(tqdm(dataloader, desc="Training")):
-                optimizer.zero_grad()
-                inputs = {key: val.to(self.device) for key, val in batch.items() if key != 'labels'}
-                labels = batch['labels'].to(self.device)
-                outputs = self.model(**inputs, labels=labels)
-                loss = outputs.loss / self.gradient_accumulation_steps
-                loss.backward()
-                
-                if (step + 1) % self.gradient_accumulation_steps == 0:
-                    optimizer.step()
-                    scheduler.step()
+                try:
                     optimizer.zero_grad()
+                    inputs = {
+                        key: val.to(self.device)
+                        for key, val in batch.items()
+                        if key != "labels"
+                    }
+                    labels = batch["labels"].to(self.device)
 
-                total_loss += loss.item()
-            
-            print(f"Epoch {epoch+1}/{self.epochs}, Training Loss: {total_loss / len(dataloader)}")
+                    if isinstance(self.model, AutoModelForCausalLM):
+                        # Shift labels for causal language modeling
+                        outputs = self.model(
+                            input_ids=inputs["input_ids"],
+                            attention_mask=inputs["attention_mask"],
+                            labels=inputs["input_ids"],
+                        )
+                    else:
+                        outputs = self.model(**inputs, labels=labels)
+
+                    loss = (
+                        outputs.loss / self.gradient_accumulation_steps
+                        if self.gradient_accumulation_steps > 0
+                        else outputs.loss
+                    )
+                    loss.backward()
+
+                    if (step + 1) % self.gradient_accumulation_steps == 0:
+                        optimizer.step()
+                        scheduler.step()
+                        optimizer.zero_grad()
+
+                    total_loss += loss.item()
+                except Exception as e:
+                    print("An Error occurred during finetuning")
+                    raise e
+
+            print(
+                f"Epoch {epoch+1}/{self.epochs}, Training Loss: {total_loss / len(dataloader)}"
+            )
 
         return y
-    
+
+
 @nice_repr
 class FineTuneGenLLMClassifier(FineTuneLLMEmbeddingClassifier):
     def __init__(
-        self, 
-        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
-        batch_size: DiscreteValue(32, 512),  # type: ignore
-        max_length: DiscreteValue(32, 512), # type: ignore
-        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
-        epochs: DiscreteValue(1, 5), # type: ignore
-        warmup_steps: DiscreteValue(0, 2000), # type: ignore
-        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
-        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5), # type: ignore
-        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
-        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
-        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+        self,
+        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256),  # type: ignore
+        max_length: CategoricalValue(64, 128, 256, 512, 1024, 2048, 4096),  # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6),  # type: ignore
+        epochs: DiscreteValue(1, 10),  # type: ignore
+        warmup_steps: CategoricalValue(0, 100, 500, 1000, 2000),  # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1),  # type: ignore
+        optimizer: CategoricalValue("adamw", "adam", "sgd", "adagrad"),  # type: ignore
+        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5),  # type: ignore
+        gradient_accumulation_steps: CategoricalValue(1, 2, 4, 8, 16),  # type: ignore
+        lr_scheduler: CategoricalValue("linear", "cosine", "cosine_with_restarts", "polynomial", "constant"),  # type: ignore
     ):
         super().__init__(
-            inner_model, 
-            batch_size, 
-            max_length, 
-            learning_rate, 
-            epochs, 
-            warmup_steps, 
-            weight_decay, 
-            dropout_rate, 
-            optimizer, 
-            gradient_accumulation_steps, 
-            lr_scheduler)
+            inner_model,
+            batch_size,
+            max_length,
+            learning_rate,
+            epochs,
+            warmup_steps,
+            weight_decay,
+            dropout_rate,
+            optimizer,
+            gradient_accumulation_steps,
+            lr_scheduler,
+        )
+
 
 @nice_repr
 class PartialFineTuneGenLLMClassifier(PartialFineTuneLLMEmbeddingClassifier):
     def __init__(
-        self, 
-        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
-        num_trainable_layers: DiscreteValue(0, 50),  # type: ignore
-        batch_size: DiscreteValue(32, 512),  # type: ignore
-        max_length: DiscreteValue(32, 512), # type: ignore
-        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
-        epochs: DiscreteValue(1, 5), # type: ignore
-        warmup_steps: DiscreteValue(0, 2000), # type: ignore
-        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
-        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5), # type: ignore
-        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
-        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
-        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+        self,
+        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]),  # type: ignore
+        num_trainable_layers: CategoricalValue(0, 2, 4, 8, 16, 32, 64),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256),  # type: ignore
+        max_length: CategoricalValue(64, 128, 256, 512, 1024, 2048, 4096),  # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6),  # type: ignore
+        epochs: DiscreteValue(1, 10),  # type: ignore
+        warmup_steps: CategoricalValue(0, 100, 500, 1000, 2000),  # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1),  # type: ignore
+        optimizer: CategoricalValue("adamw", "adam", "sgd", "adagrad"),  # type: ignore
+        dropout_rate: CategoricalValue(0.1, 0.2, 0.3, 0.4, 0.5),  # type: ignore
+        gradient_accumulation_steps: CategoricalValue(1, 2, 4, 8, 16),  # type: ignore
+        lr_scheduler: CategoricalValue("linear", "cosine", "cosine_with_restarts", "polynomial", "constant"),  # type: ignore
     ):
         super().__init__(
             inner_model,
             num_trainable_layers,
-            batch_size, 
-            max_length, 
-            learning_rate, 
-            epochs, 
-            warmup_steps, 
-            weight_decay, 
-            dropout_rate, 
-            optimizer, 
-            gradient_accumulation_steps, 
-            lr_scheduler)
-        
+            batch_size,
+            max_length,
+            learning_rate,
+            epochs,
+            warmup_steps,
+            weight_decay,
+            dropout_rate,
+            optimizer,
+            gradient_accumulation_steps,
+            lr_scheduler,
+        )
+
+
 @nice_repr
 class LoraGenLLMClassifier(LoraLLMEmbeddingClassifier):
     def __init__(
-        self, 
-        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
-        lora_r: CategoricalValue(2, 4, 8, 16), # type: ignore
-        lora_alpha: CategoricalValue(8, 16, 32, 64), # type: ignore
-        lora_dropout: CategoricalValue(0.0, 0.1, 0.2, 0.3), # type: ignore
-        lora_bias: CategoricalValue("none", "all"), # type: ignore
-        batch_size: DiscreteValue(32, 512),  # type: ignore
-        max_length: DiscreteValue(32, 512), # type: ignore
-        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
-        epochs: DiscreteValue(1, 10), # type: ignore
-        warmup_steps: DiscreteValue(0, 2000), # type: ignore
-        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
-        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
-        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
-        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
+        self,
+        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]),  # type: ignore
+        lora_r: DiscreteValue(1, 32),  # type: ignore
+        lora_alpha: CategoricalValue(8, 16, 32, 64),  # type: ignore
+        lora_dropout: CategoricalValue(0.0, 0.1, 0.2, 0.3),  # type: ignore
+        lora_bias: CategoricalValue("none", "all"),  # type: ignore
+        batch_size: CategoricalValue(2, 4, 8, 16, 32, 64, 128, 256),  # type: ignore
+        max_length: CategoricalValue(64, 128, 256, 512, 1024, 2048, 4096),  # type: ignore
+        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6),  # type: ignore
+        epochs: DiscreteValue(1, 10),  # type: ignore
+        warmup_steps: CategoricalValue(0, 100, 500, 1000, 2000),  # type: ignore
+        weight_decay: CategoricalValue(0, 0.01, 0.1),  # type: ignore
+        optimizer: CategoricalValue("adamw", "adam", "sgd", "adagrad"),  # type: ignore
+        gradient_accumulation_steps: CategoricalValue(1, 2, 4, 8, 16),  # type: ignore
+        lr_scheduler: CategoricalValue("linear", "cosine", "cosine_with_restarts", "polynomial", "constant"),  # type: ignore
+        model_save: CategoricalValue("classifier", "all"),  # type: ignore
+        init_lora_weights: CategoricalValue("gaussian", "pissa", "loftq", None),  # type: ignore
+        fan_in_fan_out: CategoricalValue(True, False),  # type: ignore
     ):
         super().__init__(
             inner_model,
@@ -891,46 +1090,16 @@ class LoraGenLLMClassifier(LoraLLMEmbeddingClassifier):
             lora_alpha,
             lora_dropout,
             lora_bias,
-            batch_size, 
-            max_length, 
-            learning_rate, 
-            epochs, 
-            warmup_steps, 
-            weight_decay, 
-            optimizer, 
-            gradient_accumulation_steps, 
-            lr_scheduler)
-
-
-    def __init__(
-        self, 
-        inner_model: algorithm(*[Prompt, GeneratedText], include=["transformer"]), # type: ignore
-        lora_r: CategoricalValue(2, 4, 8, 16), # type: ignore
-        lora_alpha: CategoricalValue(8, 16, 32, 64), # type: ignore
-        lora_dropout: CategoricalValue(0.0, 0.1, 0.2, 0.3), # type: ignore
-        lora_bias: CategoricalValue("none", "all"), # type: ignore
-        batch_size: DiscreteValue(32, 512),  # type: ignore
-        max_length: DiscreteValue(32, 512), # type: ignore
-        learning_rate: CategoricalValue(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 1e-4, 1e-6), # type: ignore
-        epochs: DiscreteValue(1, 10), # type: ignore
-        warmup_steps: DiscreteValue(0, 2000), # type: ignore
-        weight_decay: CategoricalValue(0, 0.01, 0.1), # type: ignore
-        optimizer: CategoricalValue('adamw', 'adam', 'sgd'), # type: ignore
-        gradient_accumulation_steps: DiscreteValue(1, 8), # type: ignore
-        lr_scheduler: CategoricalValue('linear', 'cosine', 'constant') # type: ignore
-    ):
-        super().__init__(
-            inner_model,
-            lora_r,
-            lora_alpha,
-            lora_dropout,
-            lora_bias,
-            batch_size, 
-            max_length, 
-            learning_rate, 
-            epochs, 
-            warmup_steps, 
-            weight_decay, 
-            optimizer, 
-            gradient_accumulation_steps, 
-            lr_scheduler)
+            batch_size,
+            max_length,
+            learning_rate,
+            epochs,
+            warmup_steps,
+            weight_decay,
+            optimizer,
+            gradient_accumulation_steps,
+            lr_scheduler,
+            model_save,
+            init_lora_weights,
+            fan_in_fan_out,
+        )

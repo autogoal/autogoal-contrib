@@ -16,7 +16,6 @@ import sklearn.cross_decomposition
 import sklearn.feature_extraction
 import sklearn.impute
 import sklearn.naive_bayes
-from joblib import parallel_backend
 from numpy import inf, nan
 from sklearn.datasets import make_classification
 
@@ -38,15 +37,6 @@ from autogoal.kb import (
     Sparse,
 )
 from autogoal.utils import nice_repr
-
-# try:
-#     import dask
-#     from dask.distributed import Client
-
-#     DASK_CLIENT = Client(processes=False)
-#     PARALLEL_BACKEND = 'dask'
-# except ImportError:
-# PARALLEL_BACKEND = 'loky'
 
 
 @nice_repr
@@ -91,19 +81,10 @@ class SklearnWrapper(AlgorithmBase):
 
 class SklearnEstimator(SklearnWrapper):
     def _train(self, X, y=None):
-        # if self._fixed:
-        #     self.reset()
-        #     self._fixed = False
-        
         self.fit(X, y)
-        
-        # if hasattr(self, "partial_fit"):
-        #     self.partial_fit(X, y, np.unique(y))
-        # else:
         return y
 
     def _eval(self, X, y=None):
-        self._fixed = True
         return self.predict(X)
 
     @abc.abstractmethod
